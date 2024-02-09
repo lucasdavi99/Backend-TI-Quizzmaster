@@ -34,7 +34,7 @@ public class User implements Serializable, UserDetails {
     @Column
     private String password;
     @Column
-    private UserRole role = UserRole.ADMIN;
+    private UserRole role = UserRole.USER;
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Score> scores = new ArrayList<>();
 

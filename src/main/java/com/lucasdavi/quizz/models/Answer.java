@@ -26,7 +26,7 @@ public class Answer implements Serializable {
     @Column(nullable = false, length = 500)
     private String content;
     @Column(name = "is_correct")
-    private Boolean isCorrect;
+    private Boolean isCorrect = false;
 
     @ManyToOne
     @JoinColumn(name = "question_id" , nullable = false)

@@ -2,9 +2,9 @@ package com.lucasdavi.quizz.controllers;
 
 import com.lucasdavi.quizz.models.Question;
 import com.lucasdavi.quizz.services.QuestionService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,7 +17,7 @@ public class QuestionController {
     private QuestionService questionService;
 
     @PostMapping
-    public ResponseEntity<Question> createQuestion(@Validated @RequestBody Question question) {
+    public ResponseEntity<Question> createQuestion(@Valid @RequestBody Question question) {
         Question newQuestion = this.questionService.saveQuestion(question);
         return ResponseEntity.ok().body(newQuestion);
     }

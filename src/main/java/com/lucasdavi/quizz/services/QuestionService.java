@@ -1,6 +1,5 @@
 package com.lucasdavi.quizz.services;
 
-import com.lucasdavi.quizz.models.Answer;
 import com.lucasdavi.quizz.models.Question;
 import com.lucasdavi.quizz.repositories.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;

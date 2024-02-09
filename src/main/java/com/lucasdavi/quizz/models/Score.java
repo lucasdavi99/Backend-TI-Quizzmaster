@@ -18,9 +18,10 @@ public class Score implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column
-    private Integer score;
+    private Integer points = 0;
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
