@@ -1,5 +1,6 @@
 package com.lucasdavi.quizz.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.lucasdavi.quizz.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,7 @@ public class User implements Serializable, UserDetails {
     @Column
     private UserRole role = UserRole.USER;
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonManagedReference
     private List<Score> scores = new ArrayList<>();
 
 public User(String username, String password, String email) {

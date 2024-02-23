@@ -17,8 +17,8 @@ public class ScoreController {
     ScoreService scoreService;
 
     @PostMapping
-    public ResponseEntity<Score> createScore(@Valid @RequestBody Score score, @PathVariable Long answerId) {
-        Score newScore = this.scoreService.saveScore(score, answerId);
+    public ResponseEntity<Score> createScore(@Valid @RequestBody Score score) {
+        Score newScore = this.scoreService.saveScore(score);
         return ResponseEntity.ok().body(newScore);
     }
 

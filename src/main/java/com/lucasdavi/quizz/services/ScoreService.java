@@ -20,17 +20,15 @@ public class ScoreService {
     @Autowired
     private AnswerService answerService;
 
-    public Score saveScore(Score score, Long answerId) {
+    public Score saveScore(Score score) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof UserDetails currentUser)) {
             throw new RuntimeException("User not authenticated");
         }
 
-        Answer answer = answerService.getAnswerById(answerId).orElseThrow(() -> new RuntimeException("Answer not found"));
-
         score.setUser((User) currentUser);
-        score.setPoints(answer.getIsCorrect() ? 10 : 0);
+        score.setPoints(score.getPoints() > 0 ? 10 : 0);
 
         return this.scoreRepository.save(score);
     }
