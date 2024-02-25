@@ -26,7 +26,6 @@ public class Score implements Serializable {
     private Integer points = 0;
     @ManyToOne
     @JoinColumn(name = "user_id")
-    @JsonBackReference
     private User user;
 
 }

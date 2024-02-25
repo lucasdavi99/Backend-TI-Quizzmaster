@@ -43,22 +43,22 @@ public class ScoreService {
     }
 
     public Score updateScoreById(Long id, Score newScoreData) {
-        // Busca o score existente pelo id
+
         Optional<Score> optionalExistingScore = scoreRepository.findById(id);
 
         if (optionalExistingScore.isPresent()) {
             Score existingScore = optionalExistingScore.get();
 
-            // Verifica se os novos pontos são maiores que os atuais
+
             if (newScoreData.getPoints() > existingScore.getPoints()) {
-                // Atualiza os pontos do score existente
+
                 existingScore.setPoints(newScoreData.getPoints());
 
-                // Salva o score existente com os pontos atualizados
                 return scoreRepository.save(existingScore);
+            }else {
+                throw new RuntimeException("Score not updated");
             }
         }
-        // Retorna null ou pode optar por lançar uma exceção se o score não existir ou não necessitar atualização
         return null;
     }
 
