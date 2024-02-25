@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ScoreService {
@@ -28,8 +29,6 @@ public class ScoreService {
         }
 
         score.setUser((User) currentUser);
-        score.setPoints(score.getPoints() > 0 ? 10 : 0);
-
         return this.scoreRepository.save(score);
     }
 
@@ -43,11 +42,24 @@ public class ScoreService {
         return this.scoreRepository.findAll();
     }
 
-    public Score updateScoreById(Long id, Score score) {
-        if(score.getPoints() > scoreRepository.getReferenceById(id).getPoints()){
-            score.setPoints(score.getPoints());
-            return this.scoreRepository.save(score);
+    public Score updateScoreById(Long id, Score newScoreData) {
+        // Busca o score existente pelo id
+        Optional<Score> optionalExistingScore = scoreRepository.findById(id);
+
+        if (optionalExistingScore.isPresent()) {
+            Score existingScore = optionalExistingScore.get();
+
+            // Verifica se os novos pontos são maiores que os atuais
+            if (newScoreData.getPoints() > existingScore.getPoints()) {
+                // Atualiza os pontos do score existente
+                existingScore.setPoints(newScoreData.getPoints());
+
+                // Salva o score existente com os pontos atualizados
+                return scoreRepository.save(existingScore);
+            }
         }
+        // Retorna null ou pode optar por lançar uma exceção se o score não existir ou não necessitar atualização
         return null;
     }
+
 }

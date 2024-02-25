@@ -23,7 +23,7 @@ public class Score implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column
-    private Integer points;
+    private Integer points = 0;
     @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonBackReference
