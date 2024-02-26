@@ -1,12 +1,10 @@
 package com.lucasdavi.quizz.models;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.context.annotation.Lazy;
 
 import java.io.Serial;
 import java.io.Serializable;
