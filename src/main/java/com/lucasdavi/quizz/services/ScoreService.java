@@ -1,6 +1,5 @@
 package com.lucasdavi.quizz.services;
 
-import com.lucasdavi.quizz.models.Answer;
 import com.lucasdavi.quizz.models.Score;
 import com.lucasdavi.quizz.models.User;
 import com.lucasdavi.quizz.repositories.ScoreRepository;

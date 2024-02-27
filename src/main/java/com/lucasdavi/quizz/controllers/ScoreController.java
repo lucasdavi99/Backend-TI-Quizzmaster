@@ -1,6 +1,5 @@
 package com.lucasdavi.quizz.controllers;
 
-import com.lucasdavi.quizz.models.Answer;
 import com.lucasdavi.quizz.models.Score;
 import com.lucasdavi.quizz.services.ScoreService;
 import jakarta.validation.Valid;

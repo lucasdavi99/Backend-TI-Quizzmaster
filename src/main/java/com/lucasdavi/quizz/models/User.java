@@ -1,7 +1,6 @@
 package com.lucasdavi.quizz.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.lucasdavi.quizz.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
