@@ -35,21 +35,21 @@ INSERT INTO answer (content, is_correct, question_id) VALUES
 
 -- Respostas para a pergunta 6
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Um tipo de estrutura de controle que repete uma série de instruções enquanto uma condição é verdadeira', true, 6),
+('Uma estrutura de controle de repetição', true, 6),
 ('Um operador utilizado para realizar cálculos matemáticos', false, 6),
 ('Um método de ordenação de dados em um array', false, 6),
 ('Uma função utilizada para comparar valores em um loop', false, 6);
 
 -- Respostas para a pergunta 7
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('HTTPS adiciona uma camada de segurança através do protocolo SSL/TLS, enquanto o HTTP não oferece essa camada de segurança', true, 7),
+('HTTPS é uma versão mais recente do HTTP com criptografia', true, 7),
 ('HTTPS é mais rápido que o HTTP devido à compressão de dados', false, 7),
 ('HTTP é utilizado apenas para transferência de arquivos estáticos', false, 7),
 ('HTTPS é mais utilizado em servidores locais do que em servidores remotos', false, 7);
 
 -- Respostas para a pergunta 8
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Um conjunto de passos finitos para resolver um problema ou realizar uma tarefa', true, 8),
+('Um conjunto de instruções para realizar uma tarefa específica', true, 8),
 ('Uma expressão matemática complexa', false, 8),
 ('Um tipo de dado utilizado em linguagens de programação', false, 8),
 ('Um método de organização de dados em uma estrutura de dados', false, 8);
@@ -84,28 +84,28 @@ INSERT INTO answer (content, is_correct, question_id) VALUES
 
 -- Respostas para a pergunta 13
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Linguagens de alto nível são mais abstratas e próximas da linguagem humana, enquanto linguagens de baixo nível são mais próximas da linguagem de máquina e mais difíceis de entender', true, 13),
-('Linguagens de alto nível são mais rápidas que linguagens de baixo nível devido à otimização de código', false, 13),
-('Linguagens de alto nível são exclusivamente utilizadas em sistemas embarcados', false, 13),
-('Linguagens de baixo nível são mais fáceis de aprender para iniciantes', false, 13);
+('Linguagens de alto nível são mais abstratas e próximas da linguagem humana', true, 13),
+('Linguagens de alto nível são mais difíceis de aprender', false, 13),
+('Linguagens de baixo nível são mais fáceis de entender', false, 13),
+('Linguagens de baixo nível são mais lentas na execução de código', false, 13);
 
 -- Respostas para a pergunta 14
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Um software que armazena e distribui páginas web para os clientes que as solicitam', true, 14),
-('Um hardware responsável pelo processamento de dados em uma rede', false, 14),
-('Um protocolo de comunicação utilizado para transferência de arquivos', false, 14),
-('Um sistema operacional utilizado em servidores de hospedagem', false, 14);
+('Um software que armazena e distribui páginas web', true, 14),
+('Um programa de edição de texto', false, 14),
+('Um hardware responsável pelo processamento gráfico', false, 14),
+('Um dispositivo de entrada de dados', false, 14);
 
 -- Respostas para a pergunta 15
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Um espaço de memória reservado para armazenar valores que podem variar durante a execução do programa', true, 15),
+('Um local de armazenamento para dados que podem variar durante a execução do programa', true, 15),
 ('Um tipo de dado que armazena valores fixos e imutáveis', false, 15),
 ('Um tipo de estrutura de controle que repete uma série de instruções', false, 15),
 ('Um método de programação utilizado para organizar e estruturar o código', false, 15);
 
 -- Respostas para a pergunta 16
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Um sistema que registra e controla as alterações feitas nos arquivos ao longo do tempo, permitindo que você reverta para versões específicas mais tarde', true, 16),
+('Uma ferramenta para rastrear e gerenciar alterações no código fonte', true, 16),
 ('Um software de backup utilizado para armazenar cópias de segurança dos arquivos', false, 16),
 ('Um protocolo de comunicação utilizado para sincronizar arquivos entre dispositivos', false, 16),
 ('Um sistema de criptografia utilizado para proteger arquivos confidenciais', false, 16);
@@ -119,21 +119,21 @@ INSERT INTO answer (content, is_correct, question_id) VALUES
 
 -- Respostas para a pergunta 18
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Domain Name System (Sistema de Nomes de Domínio) é um sistema que traduz nomes de domínio legíveis para humanos em endereços IP numéricos', true, 18),
-('Dynamic Network System (Sistema de Rede Dinâmica) é um protocolo utilizado para alocar endereços IP dinamicamente', false, 18),
-('Data Network Security (Segurança de Rede de Dados) é um conjunto de medidas para proteger a integridade dos dados em uma rede', false, 18),
-('Database Naming Service (Serviço de Nomenclatura de Banco de Dados) é um sistema de gerenciamento de dados utilizado para nomear tabelas e colunas em um banco de dados', false, 18);
+('Um serviço que traduz nomes de domínio em endereços IP', true, 18),
+('Um sistema de gerenciamento de arquivos', false, 18),
+('Um protocolo de segurança na web', false, 18),
+('Uma linguagem de programação para sistemas distribuídos', false, 18);
 
 -- Respostas para a pergunta 19
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('Linguagens interpretadas são executadas linha por linha, enquanto linguagens compiladas são traduzidas para código de máquina antes da execução', true, 19),
-('Linguagens interpretadas são mais rápidas que linguagens compiladas devido à interpretação direta do código fonte', false, 19),
-('Linguagens compiladas são mais flexíveis que linguagens interpretadas devido à execução dinâmica do código', false, 19),
-('Linguagens interpretadas são mais difíceis de depurar que linguagens compiladas', false, 19);
+('Um banco de dados que armazena dados em tabelas relacionadas', true, 19),
+('Um banco de dados que não possui tabelas relacionadas', false, 19),
+('Um banco de dados sem estrutura definida', false, 19),
+('Um banco de dados que utiliza apenas dados numéricos', false, 19);
 
 -- Respostas para a pergunta 20
 INSERT INTO answer (content, is_correct, question_id) VALUES
-('SQL (Structured Query Language) é uma linguagem de programação utilizada para gerenciar e manipular bancos de dados relacionais', true, 20),
+('SQL é uma linguagem de programação utilizada para gerenciar e manipular bancos de dados relacionais', true, 20),
 ('SQL é uma linguagem de programação de propósito geral', false, 20),
 ('SQL é exclusivamente utilizado para desenvolvimento web', false, 20),
 ('SQL é uma linguagem de programação interpretada', false, 20);

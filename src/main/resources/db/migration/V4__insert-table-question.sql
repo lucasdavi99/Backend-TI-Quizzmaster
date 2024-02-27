@@ -1,6 +1,6 @@
 INSERT INTO question (content) VALUES
 ('Qual é o principal protocolo de comunicação utilizado para transferência de arquivos entre computadores em uma rede?'),
-('Qual é a linguagem de programação amplamente utilizada para o desenvolvimento web e que utiliza HTML e CSS'),
+('Qual é a linguagem de programação amplamente utilizada para o desenvolvimento web e que utiliza HTML e CSS?'),
 ('O que significa a sigla "URL" em termos de navegação na web?'),
 ('Qual é o propósito do comando "git clone" no controle de versionamento Git?'),
 ('O que é o HTML em uma página web?'),
@@ -17,5 +17,5 @@ INSERT INTO question (content) VALUES
 ('O que é um sistema de controle de versão?'),
 ('Qual é a diferença entre JavaScript e Java?'),
 ('O que é um DNS?'),
-('Qual é a diferença entre linguagens de programação interpretadas e compiladas?'),
+('O que é um banco de dados relacional?'),
 ('O que é SQL e para que é comumente utilizado?');
