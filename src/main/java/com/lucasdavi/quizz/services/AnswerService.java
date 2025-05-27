@@ -1,5 +1,6 @@
 package com.lucasdavi.quizz.services;
 
+import com.lucasdavi.quizz.dtos.AnswerDTO;
 import com.lucasdavi.quizz.models.Answer;
 import com.lucasdavi.quizz.repositories.AnswerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,25 +15,47 @@ public class AnswerService {
     @Autowired
     private AnswerRepository answerRepository;
 
-    public Answer saveAnswer(Answer answer) {
+    public Answer saveAnswer(AnswerDTO answerDTO) {
+        Answer answer = new Answer();
+        answer.setContent(answerDTO.content());
+        answer.setIsCorrect(answerDTO.isCorrect());
+
         return this.answerRepository.save(answer);
     }
 
-    public Optional<Answer> getAnswerById(Long id) {
-        return this.answerRepository.findById(id);
+    public Optional<AnswerDTO> getAnswerDTOById(Long id) {
+        return this.answerRepository.findById(id)
+                .map(answer -> new AnswerDTO(
+                        answer.getId(),
+                        answer.getContent(),
+                        answer.getIsCorrect()
+                ));
     }
 
-    public List<Answer> getAllAnswers() {
-        return this.answerRepository.findAll();
+    public List<AnswerDTO> getAllAnswersDTO() {
+        return this.answerRepository.findAll().stream()
+                .map(answer -> new AnswerDTO(
+                        answer.getId(),
+                        answer.getContent(),
+                        answer.getIsCorrect()
+                ))
+                .toList();
     }
 
-    public Answer updateAnswerById(Long id, Answer answer) {
+    public AnswerDTO updateAnswerById(Long id, AnswerDTO answerDTO) {
         Optional<Answer> answerData = this.answerRepository.findById(id);
         if (answerData.isPresent()) {
-            Answer _answer = answerData.get();
-            _answer.setContent(answer.getContent());
-            _answer.setIsCorrect(answer.getIsCorrect());
-            return this.answerRepository.save(_answer);
+            Answer answer = answerData.get();
+            answer.setContent(answerDTO.content());
+            answer.setIsCorrect(answerDTO.isCorrect());
+
+            Answer updatedAnswer = this.answerRepository.save(answer);
+
+            return new AnswerDTO(
+                    updatedAnswer.getId(),
+                    updatedAnswer.getContent(),
+                    updatedAnswer.getIsCorrect()
+            );
         } else {
             return null;
         }

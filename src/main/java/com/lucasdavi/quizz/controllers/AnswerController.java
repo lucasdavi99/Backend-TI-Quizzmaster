@@ -1,10 +1,14 @@
 package com.lucasdavi.quizz.controllers;
 
+import com.lucasdavi.quizz.dtos.AnswerDTO;
 import com.lucasdavi.quizz.models.Answer;
 import com.lucasdavi.quizz.services.AnswerService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/answers")
@@ -14,25 +18,37 @@ public class AnswerController {
     private AnswerService answerService;
 
     @PostMapping
-    public ResponseEntity<Answer> createAnswer(@RequestBody Answer answer) {
-        return ResponseEntity.ok(this.answerService.saveAnswer(answer));
+    public ResponseEntity<AnswerDTO> createAnswer(@Valid @RequestBody AnswerDTO answerDTO) {
+        Answer answer = answerService.saveAnswer(answerDTO);
+        AnswerDTO savedAnswerDTO = new AnswerDTO(
+                answer.getId(),
+                answer.getContent(),
+                answer.getIsCorrect()
+        );
+        return ResponseEntity.status(201).body(savedAnswerDTO);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Answer> getAnswerById(@PathVariable Long id) {
-        return this.answerService.getAnswerById(id)
+    public ResponseEntity<AnswerDTO> getAnswerById(@PathVariable Long id) {
+        return answerService.getAnswerDTOById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-//    @GetMapping("/question/{questionId}")
-//    public ResponseEntity<List<Answer>> getAnswersByQuestionId(@PathVariable Long questionId) {
-//        return ResponseEntity.ok(answerService.getAnswerById(questionId));
-//    }
+    @GetMapping
+    public ResponseEntity<List<AnswerDTO>> getAllAnswers() {
+        List<AnswerDTO> answerDTOs = answerService.getAllAnswersDTO();
+        return ResponseEntity.ok(answerDTOs);
+    }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Answer> updateAnswer(@PathVariable Long id, @RequestBody Answer answer) {
-        return ResponseEntity.ok(this.answerService.updateAnswerById(id, answer));
+    public ResponseEntity<AnswerDTO> updateAnswer(@PathVariable Long id, @Valid @RequestBody AnswerDTO answerDTO) {
+        AnswerDTO updatedAnswer = answerService.updateAnswerById(id, answerDTO);
+        if (updatedAnswer != null) {
+            return ResponseEntity.ok(updatedAnswer);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")

@@ -1,5 +1,6 @@
 package com.lucasdavi.quizz.controllers;
 
+import com.lucasdavi.quizz.dtos.QuestionDTO;
 import com.lucasdavi.quizz.models.Question;
 import com.lucasdavi.quizz.services.QuestionService;
 import jakarta.validation.Valid;
@@ -17,24 +18,32 @@ public class QuestionController {
     private QuestionService questionService;
 
     @PostMapping
-    public ResponseEntity<Question> createQuestion(@Valid @RequestBody Question question) {
-        Question newQuestion = this.questionService.saveQuestion(question);
-        return ResponseEntity.ok().body(newQuestion);
+    public ResponseEntity<?> createQuestion(@Valid @RequestBody QuestionDTO questionDTO) {
+        Question question = questionService.saveQuestion(questionDTO);
+        return ResponseEntity.status(201).body(question);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Question> getQuestionById(@PathVariable Long id) {
-        return questionService.getQuestionById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<QuestionDTO> getQuestionById(@PathVariable Long id) {
+        return questionService.getQuestionDTOById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping
-    public ResponseEntity<List<Question>> getAllQuestions() {
-        return ResponseEntity.ok(questionService.getAllQuestions());
+   @GetMapping
+    public ResponseEntity<List<QuestionDTO>> getAllQuestions() {
+        List<QuestionDTO> questionDTOs = questionService.getAllQuestionsDTO();
+        return ResponseEntity.ok(questionDTOs);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Question> updateQuestion(@PathVariable Long id, @RequestBody Question question) {
-        return ResponseEntity.ok(questionService.updateQuestionById(id, question));
+    public ResponseEntity<QuestionDTO> updateQuestion(@PathVariable Long id, @Valid @RequestBody QuestionDTO questionDTO) {
+        QuestionDTO updatedQuestion = questionService.updateQuestionById(id, questionDTO);
+        if (updatedQuestion != null) {
+            return ResponseEntity.ok(updatedQuestion);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
