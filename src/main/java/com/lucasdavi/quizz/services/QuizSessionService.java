@@ -44,13 +44,11 @@ public class QuizSessionService {
     public QuizSessionStateDTO startNewSession(StartQuizSessionDTO dto) {
         User currentUser = getCurrentUser();
 
-        // Verifica se já existe uma sessão ativa para o usuário
         Optional<QuizSession> activeSession = quizSessionRepository.findActiveSessionByUser(currentUser);
         if (activeSession.isPresent()) {
             throw new RuntimeException("User already has an active quiz session");
         }
 
-        // Busca perguntas aleatórias
         List<Question> allQuestions = questionRepository.findAll();
         if (allQuestions.size() < dto.numberOfQuestions()) {
             throw new RuntimeException("Not enough questions available");
@@ -76,7 +74,6 @@ public class QuizSessionService {
         QuizSession session = quizSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new EntityNotFoundException("Quiz session not found"));
 
-        // 🚀 FIX: Usa ArrayList ao invés de lista imutável
         List<Question> orderedQuestions = session.getQuestions()
                 .stream()
                 .sorted((q1, q2) -> q1.getId().compareTo(q2.getId()))
@@ -116,31 +113,26 @@ public class QuizSessionService {
         System.out.println("   Session ID: " + session.getId());
         System.out.println("   Current Index: " + session.getCurrentQuestionIndex());
 
-        // Verifica se a resposta pertence à pergunta atual
         if (!selectedAnswer.getQuestion().getId().equals(currentQuestion.getId())) {
             throw new RuntimeException("Answer does not belong to current question");
         }
 
         boolean isCorrect = selectedAnswer.getIsCorrect();
-
         if (isCorrect) {
-            // Resposta correta: aumenta pontuação e vai para próxima pergunta
             session.setScore(session.getScore() + 10);
 
             if (session.hasNextQuestion()) {
                 session.moveToNextQuestion();
                 quizSessionRepository.save(session);
-                // Retorna null para indicar que a sessão continua
-                return null;
+                return null; // Continua o quiz
             } else {
-                // Última pergunta respondida corretamente
+                session.moveToNextQuestion(); // ✅ Incrementa para indicar completude
                 session.finishSession();
                 quizSessionRepository.save(session);
                 saveScoreToDatabase(session);
                 return createSuccessResult(session, "Parabéns! Você completou todo o quiz!");
             }
         } else {
-            // Resposta incorreta: finaliza sessão
             session.finishSession();
             quizSessionRepository.save(session);
             saveScoreToDatabase(session);
@@ -225,15 +217,26 @@ public class QuizSessionService {
     }
 
     private QuizSessionResultDTO convertToResultDTO(QuizSession session) {
+        boolean wasCompleted = session.getCurrentQuestionIndex() >= session.getQuestions().size()
+                && session.getFinishedAt() != null;
+
+        String message;
+        if (wasCompleted) {
+            message = "Quiz completado com sucesso!";
+        } else if (session.getFinishedAt() != null) {
+            message = "Quiz interrompido por resposta incorreta";
+        } else {
+            message = "Quiz em andamento";
+        }
+
         return new QuizSessionResultDTO(
                 session.getId(),
                 session.getScore(),
                 session.getQuestions().size(),
-                session.getCurrentQuestionIndex() >= session.getQuestions().size(),
+                wasCompleted,
                 session.getCreatedAt(),
                 session.getFinishedAt(),
-                session.getCurrentQuestionIndex() >= session.getQuestions().size() ?
-                        "Quiz completado com sucesso!" : "Quiz interrompido"
+                message
         );
     }
 }
