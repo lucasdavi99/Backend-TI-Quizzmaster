@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class QuizSessionService {
@@ -70,12 +71,26 @@ public class QuizSessionService {
         return convertToStateDTO(savedSession);
     }
 
+
+    private QuizSession getSessionWithOrderedQuestions(Long sessionId) {
+        QuizSession session = quizSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new EntityNotFoundException("Quiz session not found"));
+
+        // 🚀 FIX: Usa ArrayList ao invés de lista imutável
+        List<Question> orderedQuestions = session.getQuestions()
+                .stream()
+                .sorted((q1, q2) -> q1.getId().compareTo(q2.getId()))
+                .collect(Collectors.toList()); // ✅ Lista mutável
+
+        session.setQuestions(orderedQuestions);
+        return session;
+    }
+
     @Transactional
     public QuizSessionResultDTO answerQuestion(Long sessionId, AnswerQuestionDTO dto) {
         User currentUser = getCurrentUser();
 
-        QuizSession session = quizSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new EntityNotFoundException("Quiz session not found"));
+        QuizSession session = getSessionWithOrderedQuestions(sessionId);
 
         if (!session.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Access denied to this quiz session");
@@ -92,6 +107,14 @@ public class QuizSessionService {
 
         Answer selectedAnswer = answerRepository.findById(dto.answerId())
                 .orElseThrow(() -> new EntityNotFoundException("Answer not found"));
+
+        System.out.println("🔍 DEBUG AFTER FIX:");
+        System.out.println("   Current Question ID: " + currentQuestion.getId());
+        System.out.println("   Current Question Content: " + currentQuestion.getContent().substring(0, Math.min(50, currentQuestion.getContent().length())));
+        System.out.println("   Selected Answer ID: " + selectedAnswer.getId());
+        System.out.println("   Answer's Question ID: " + selectedAnswer.getQuestion().getId());
+        System.out.println("   Session ID: " + session.getId());
+        System.out.println("   Current Index: " + session.getCurrentQuestionIndex());
 
         // Verifica se a resposta pertence à pergunta atual
         if (!selectedAnswer.getQuestion().getId().equals(currentQuestion.getId())) {
@@ -128,8 +151,7 @@ public class QuizSessionService {
     public QuizSessionStateDTO getSessionState(Long sessionId) {
         User currentUser = getCurrentUser();
 
-        QuizSession session = quizSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new EntityNotFoundException("Quiz session not found"));
+        QuizSession session = getSessionWithOrderedQuestions(sessionId);
 
         if (!session.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Access denied to this quiz session");

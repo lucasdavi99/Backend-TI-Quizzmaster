@@ -1,6 +1,6 @@
 package com.lucasdavi.quizz.models;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.lucasdavi.quizz.models.Question;
+import com.lucasdavi.quizz.models.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,12 +29,14 @@ public class QuizSession implements Serializable {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    // 🔧 CORREÇÃO: Usar LAZY loading e OrderBy para manter ordem consistente
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "quiz_session_questions",
             joinColumns = @JoinColumn(name = "quiz_session_id"),
             inverseJoinColumns = @JoinColumn(name = "question_id")
     )
+    @OrderBy("id ASC") // 🚀 FORÇA ORDEM CONSISTENTE
     private List<Question> questions = new ArrayList<>();
 
     @Column(name = "current_question_index")
@@ -53,8 +55,16 @@ public class QuizSession implements Serializable {
     private LocalDateTime finishedAt;
 
     public Question getCurrentQuestion() {
-        if (currentQuestionIndex < questions.size()) {
-            return questions.get(currentQuestionIndex);
+        if (questions == null || questions.isEmpty()) {
+            return null;
+        }
+
+        if (currentQuestionIndex >= 0 && currentQuestionIndex < questions.size()) {
+            Question currentQ = questions.get(currentQuestionIndex);
+            System.out.println("🔍 getCurrentQuestion() - Index: " + currentQuestionIndex +
+                    ", Question ID: " + currentQ.getId() +
+                    ", Content: " + currentQ.getContent().substring(0, Math.min(50, currentQ.getContent().length())) + "...");
+            return currentQ;
         }
         return null;
     }
@@ -66,6 +76,7 @@ public class QuizSession implements Serializable {
     public void moveToNextQuestion() {
         if (hasNextQuestion()) {
             currentQuestionIndex++;
+            System.out.println("🔍 moveToNextQuestion() - New Index: " + currentQuestionIndex);
         }
     }
 

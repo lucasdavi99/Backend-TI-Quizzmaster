@@ -32,17 +32,26 @@ public class QuizSessionController {
     @PostMapping("/{sessionId}/answer")
     public ResponseEntity<?> answerQuestion(@PathVariable Long sessionId, @Valid @RequestBody AnswerQuestionDTO dto) {
         try {
+            System.out.println("🔍 CONTROLLER - Chamando answerQuestion");
+
             QuizSessionResultDTO result = quizSessionService.answerQuestion(sessionId, dto);
 
+            System.out.println("🔍 CONTROLLER - Service retornou: " + (result != null ? "Result DTO" : "NULL"));
+
             if (result != null) {
-                // Sessão terminou (resposta incorreta ou quiz completo)
+                System.out.println("🔍 CONTROLLER - Retornando resultado final");
                 return ResponseEntity.ok(result);
             } else {
-                // Resposta correta, sessão continua - retorna próxima pergunta
+                System.out.println("🔍 CONTROLLER - Buscando próximo estado...");
+
                 QuizSessionStateDTO nextState = quizSessionService.getSessionState(sessionId);
+
+                System.out.println("🔍 CONTROLLER - Estado obtido com sucesso!");
                 return ResponseEntity.ok(nextState);
             }
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
+            System.err.println("❌ CONTROLLER ERROR: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
