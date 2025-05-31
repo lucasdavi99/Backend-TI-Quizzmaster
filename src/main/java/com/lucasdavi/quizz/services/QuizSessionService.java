@@ -57,6 +57,8 @@ public class QuizSessionService {
         Collections.shuffle(allQuestions);
         List<Question> selectedQuestions = allQuestions.subList(0, dto.numberOfQuestions());
 
+        selectedQuestions.sort((q1, q2) -> q1.getId().compareTo(q2.getId()));
+
         // Cria nova sessão
         QuizSession session = new QuizSession();
         session.setUser(currentUser);
