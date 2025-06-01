@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +47,14 @@ public class QuizSessionService {
 
         Optional<QuizSession> activeSession = quizSessionRepository.findActiveSessionByUser(currentUser);
         if (activeSession.isPresent()) {
-            throw new RuntimeException("User already has an active quiz session");
+            QuizSession previousSession = activeSession.get();
+            System.out.println("⚠️ Finalizando sessão anterior inativa - ID: " + previousSession.getId());
+
+            previousSession.setIsActive(false);
+            previousSession.setFinishedAt(LocalDateTime.now());
+            quizSessionRepository.save(previousSession);
+
+            System.out.println("✅ Sessão anterior finalizada automaticamente");
         }
 
         List<Question> allQuestions = questionRepository.findAll();
@@ -68,9 +76,70 @@ public class QuizSessionService {
         session.setIsActive(true);
 
         QuizSession savedSession = quizSessionRepository.save(session);
+        System.out.println("🎮 Nova sessão criada - ID: " + savedSession.getId());
+
         return convertToStateDTO(savedSession);
     }
 
+    @Transactional
+    public int cleanupAbandonedSessions() {
+        User currentUser = getCurrentUser();
+
+        List<QuizSession> abandonedSessions = quizSessionRepository.findActiveSessionsByUser(currentUser);
+
+        if (abandonedSessions.isEmpty()) {
+            System.out.println("🧹 Nenhuma sessão abandonada encontrada para limpeza");
+            return 0;
+        }
+
+        System.out.println("🧹 Removendo " + abandonedSessions.size() + " sessão(ões) abandonada(s)");
+
+        quizSessionRepository.deleteAll(abandonedSessions);
+
+        return abandonedSessions.size();
+    }
+
+    @Transactional
+    public int finishAllActiveSessions() {
+        User currentUser = getCurrentUser();
+
+        List<QuizSession> activeSessions = quizSessionRepository.findActiveSessionsByUser(currentUser);
+
+        if (activeSessions.isEmpty()) {
+            return 0;
+        }
+
+        System.out.println("⏹️ Finalizando " + activeSessions.size() + " sessão(ões) ativa(s)");
+
+        activeSessions.forEach(session -> {
+            session.setIsActive(false);
+            session.setFinishedAt(LocalDateTime.now());
+        });
+
+        quizSessionRepository.saveAll(activeSessions);
+
+        return activeSessions.size();
+    }
+
+    @Transactional
+    public int cleanupOldAbandonedSessions(int daysOld) {
+        User currentUser = getCurrentUser();
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(daysOld);
+
+        List<QuizSession> oldAbandonedSessions = quizSessionRepository
+                .findActiveSessionsOlderThan(currentUser, cutoffDate);
+
+        if (oldAbandonedSessions.isEmpty()) {
+            return 0;
+        }
+
+        System.out.println("🧹 Removendo " + oldAbandonedSessions.size() +
+                " sessão(ões) abandonada(s) há mais de " + daysOld + " dia(s)");
+
+        quizSessionRepository.deleteAll(oldAbandonedSessions);
+
+        return oldAbandonedSessions.size();
+    }
 
     private QuizSession getSessionWithOrderedQuestions(Long sessionId) {
         QuizSession session = quizSessionRepository.findById(sessionId)
@@ -79,7 +148,7 @@ public class QuizSessionService {
         List<Question> orderedQuestions = session.getQuestions()
                 .stream()
                 .sorted((q1, q2) -> q1.getId().compareTo(q2.getId()))
-                .collect(Collectors.toList()); // ✅ Lista mutável
+                .collect(Collectors.toList());
 
         session.setQuestions(orderedQuestions);
         return session;
