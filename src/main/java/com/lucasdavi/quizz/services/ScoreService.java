@@ -8,8 +8,6 @@ import com.lucasdavi.quizz.repositories.ScoreRepository;
 import com.lucasdavi.quizz.repositories.QuizSessionRepository;
 import com.lucasdavi.quizz.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,6 +29,11 @@ public class ScoreService {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * Obtém o usuário atualmente autenticado
+     * @return User objeto do usuário atual
+     * @throws RuntimeException se o usuário não estiver autenticado
+     */
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication.getPrincipal();
@@ -40,23 +43,34 @@ public class ScoreService {
         return (User) principal;
     }
 
-    public Score saveScore(Score score) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetails currentUser)) {
-            throw new RuntimeException("User not authenticated");
+    /**
+     * Verifica se existe um usuário autenticado
+     * @return true se há usuário autenticado, false caso contrário
+     */
+    private boolean isUserAuthenticated() {
+        try {
+            getCurrentUser();
+            return true;
+        } catch (RuntimeException e) {
+            return false;
         }
+    }
 
-        score.setUser((User) currentUser);
-        return this.scoreRepository.save(score);
+    /**
+     * Salva um novo score (requer autenticação)
+     */
+    public Score saveScore(Score score) {
+        User currentUser = getCurrentUser();
+        score.setUser(currentUser);
+        return scoreRepository.save(score);
     }
 
     public Score getScoreById(Long id) {
-        return this.scoreRepository.findById(id).orElse(null);
+        return scoreRepository.findById(id).orElse(null);
     }
 
     public List<Score> getAllScores() {
-        return this.scoreRepository.findAll();
+        return scoreRepository.findAll();
     }
 
     public Score updateScoreById(Long id, Score newScoreData) {
@@ -69,15 +83,26 @@ public class ScoreService {
                 existingScore.setPoints(newScoreData.getPoints());
                 return scoreRepository.save(existingScore);
             } else {
-                throw new RuntimeException("Score not updated");
+                throw new RuntimeException("Score not updated - new score must be higher");
             }
         }
         return null;
     }
 
-    // 🏆 NOVO: Método para obter ranking dos top jogadores
+    // ========================================
+    // MÉTODOS PÚBLICOS (não requerem autenticação)
+    // ========================================
+
+    /**
+     * Obtém ranking dos top jogadores - MÉTODO PÚBLICO
+     * Pode ser chamado por usuários não autenticados
+     */
     public List<RankingDTO> getTopPlayersRanking(int limit) {
-        List<Score> allScores = scoreRepository.findAll();
+        List<Score> allScores = scoreRepository.findValidScores(); // Apenas scores > 0
+
+        if (allScores.isEmpty()) {
+            return new ArrayList<>();
+        }
 
         // Agrupa scores por usuário e calcula estatísticas
         Map<User, List<Score>> scoresByUser = allScores.stream()
@@ -109,16 +134,16 @@ public class ScoreService {
                             user.getUsername(),
                             bestScore,
                             totalGames,
-                            Math.round(averageScore * 100.0) / 100.0, // 2 casas decimais
+                            Math.round(averageScore * 100.0) / 100.0,
                             totalPoints,
                             0L // Posição será definida depois
                     );
                 })
-                .sorted((r1, r2) -> Integer.compare(r2.bestScore(), r1.bestScore())) // Ordena por melhor score desc
+                .sorted((r1, r2) -> Integer.compare(r2.bestScore(), r1.bestScore()))
                 .limit(limit)
                 .collect(Collectors.toList());
 
-        // Adiciona posições
+        // Adiciona posições no ranking
         for (int i = 0; i < rankings.size(); i++) {
             RankingDTO ranking = rankings.get(i);
             rankings.set(i, ranking.withPosition((long) (i + 1)));
@@ -127,41 +152,54 @@ public class ScoreService {
         return rankings;
     }
 
-    // 📊 NOVO: Método para obter estatísticas globais
+    /**
+     * Obtém estatísticas globais - MÉTODO PÚBLICO
+     * Pode ser chamado por usuários não autenticados
+     */
     public Map<String, Object> getGlobalStats() {
-        List<Score> allScores = scoreRepository.findAll();
-        List<User> allUsers = userRepository.findAll();
+        List<Score> validScores = scoreRepository.findValidScores(); // Apenas scores > 0
 
         Map<String, Object> stats = new HashMap<>();
 
+        if (validScores.isEmpty()) {
+            // Retorna estatísticas zeradas se não há scores válidos
+            stats.put("totalPlayers", 0L);
+            stats.put("totalGames", 0L);
+            stats.put("highestScore", 0);
+            stats.put("averageScore", 0.0);
+            stats.put("totalPoints", 0L);
+            stats.put("topPlayer", "Nenhum");
+            return stats;
+        }
+
         // Total de jogadores únicos que jogaram
-        long totalPlayers = allScores.stream()
+        long totalPlayers = validScores.stream()
                 .map(score -> score.getUser().getId())
                 .distinct()
                 .count();
 
-        // Total de partidas
-        long totalGames = allScores.size();
+        // Total de partidas válidas
+        long totalGames = validScores.size();
 
         // Maior pontuação
-        int highestScore = allScores.stream()
+        int highestScore = validScores.stream()
                 .mapToInt(Score::getPoints)
                 .max()
                 .orElse(0);
 
         // Pontuação média
-        double averageScore = allScores.stream()
+        double averageScore = validScores.stream()
                 .mapToInt(Score::getPoints)
                 .average()
                 .orElse(0.0);
 
         // Total de pontos
-        long totalPoints = allScores.stream()
+        long totalPoints = validScores.stream()
                 .mapToLong(Score::getPoints)
                 .sum();
 
         // Melhor jogador (por melhor score)
-        String topPlayer = allScores.stream()
+        String topPlayer = validScores.stream()
                 .max(Comparator.comparing(Score::getPoints))
                 .map(score -> score.getUser().getUsername())
                 .orElse("Nenhum");
@@ -176,11 +214,30 @@ public class ScoreService {
         return stats;
     }
 
-    // 👤 NOVO: Método para obter estatísticas do usuário atual
+    /**
+     * Top scores por usuário - MÉTODO PÚBLICO
+     */
+    public List<RankingDTO> getTopScoresByUser() {
+        return getTopPlayersRanking(Integer.MAX_VALUE);
+    }
+
+    /**
+     * Melhores scores por usuário (limitado) - MÉTODO PÚBLICO
+     */
+    public List<RankingDTO> getBestScoresByUser(int limit) {
+        return getTopPlayersRanking(limit);
+    }
+
+    // ========================================
+    // MÉTODOS PRIVADOS (requerem autenticação)
+    // ========================================
+
+    /**
+     * Obtém estatísticas do usuário atual - REQUER AUTENTICAÇÃO
+     */
     public UserStatsDTO getCurrentUserStats() {
         User currentUser = getCurrentUser();
 
-        // Usa o método correto do repository
         List<Score> currentUserScores = scoreRepository.findByUser(currentUser);
 
         if (currentUserScores.isEmpty()) {
@@ -229,17 +286,14 @@ public class ScoreService {
                 gamesWon,
                 gamesLost,
                 Math.round(winRate * 100.0) / 100.0,
-                LocalDateTime.now(), // Seria melhor ter data real da última partida
-                null // Seria melhor ter data de cadastro do usuário
+                LocalDateTime.now(),
+                null
         );
     }
 
-    // 🎯 NOVO: Top scores por usuário (melhor score de cada usuário)
-    public List<RankingDTO> getTopScoresByUser() {
-        return getTopPlayersRanking(Integer.MAX_VALUE);
-    }
-
-    // 📈 NOVO: Ranking paginado
+    /**
+     * Ranking paginado - MÉTODO PÚBLICO com informações extras para usuários autenticados
+     */
     public Map<String, Object> getPaginatedRanking(int page, int size) {
         List<RankingDTO> fullRanking = getTopPlayersRanking(Integer.MAX_VALUE);
 
@@ -257,10 +311,24 @@ public class ScoreService {
         result.put("hasNext", endIndex < fullRanking.size());
         result.put("hasPrevious", page > 0);
 
+        // Adiciona informações do usuário se estiver autenticado
+        if (isUserAuthenticated()) {
+            try {
+                User currentUser = getCurrentUser();
+                Long userPosition = calculateUserRankingPosition(currentUser.getId());
+                result.put("currentUserPosition", userPosition);
+                result.put("currentUserId", currentUser.getId());
+            } catch (Exception e) {
+                // Ignora erros e apenas não adiciona as informações do usuário
+            }
+        }
+
         return result;
     }
 
-    // 🔍 NOVO: Posição do usuário atual no ranking
+    /**
+     * Posição do usuário atual no ranking - REQUER AUTENTICAÇÃO
+     */
     public Map<String, Object> getCurrentUserRankingPosition() {
         User currentUser = getCurrentUser();
         Long position = calculateUserRankingPosition(currentUser.getId());
@@ -274,12 +342,13 @@ public class ScoreService {
         return result;
     }
 
-    // 🏅 NOVO: Melhores scores por usuário (limitado)
-    public List<RankingDTO> getBestScoresByUser(int limit) {
-        return getTopPlayersRanking(limit);
-    }
+    // ========================================
+    // MÉTODOS AUXILIARES
+    // ========================================
 
-    // 🔧 Método auxiliar para calcular posição do usuário no ranking
+    /**
+     * Calcula posição do usuário no ranking
+     */
     private Long calculateUserRankingPosition(Long userId) {
         List<RankingDTO> fullRanking = getTopPlayersRanking(Integer.MAX_VALUE);
 
@@ -291,10 +360,12 @@ public class ScoreService {
         return 0L; // Usuário não encontrado no ranking
     }
 
-    // 🔧 Método auxiliar para contar total de jogadores no ranking
+    /**
+     * Conta total de jogadores no ranking
+     */
     private Long getTotalPlayersInRanking() {
-        List<Score> allScores = scoreRepository.findAll();
-        return allScores.stream()
+        List<Score> validScores = scoreRepository.findValidScores();
+        return validScores.stream()
                 .map(score -> score.getUser().getId())
                 .distinct()
                 .count();

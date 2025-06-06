@@ -18,6 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class SecurityConfigurations {
+
     @Autowired
     SecurityFilter securityFilter;
 
@@ -27,11 +28,25 @@ public class SecurityConfigurations {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // ========================================
                         // ENDPOINTS PÚBLICOS (sem autenticação)
+                        // ========================================
+
+                        // Autenticação
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
 
+                        // Rankings e estatísticas PÚBLICAS
+                        .requestMatchers(HttpMethod.GET, "/api/scores/ranking").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/scores/ranking/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/scores/stats").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/scores/best-scores").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/scores/top-by-user").permitAll()
+
+                        // ========================================
                         // ENDPOINTS EXCLUSIVOS PARA ADMIN
+                        // ========================================
+
                         // Gerenciamento de perguntas e respostas
                         .requestMatchers(HttpMethod.POST, "/api/questions").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasRole("ADMIN")
@@ -49,8 +64,12 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.POST, "/api/scores").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/scores/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/scores/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/scores").hasRole("ADMIN") // Lista completa de scores
 
-                        //  ENDPOINTS PARA USUÁRIOS AUTENTICADOS
+                        // ========================================
+                        // ENDPOINTS PARA USUÁRIOS AUTENTICADOS
+                        // ========================================
+
                         // Quiz sessions (jogar)
                         .requestMatchers("/api/quiz-session/start").authenticated()
                         .requestMatchers("/api/quiz-session/*/answer").authenticated()
@@ -63,19 +82,16 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/api/answers").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/answers/*").authenticated()
 
-                        // Rankings e estatísticas (visualização)
-                        .requestMatchers(HttpMethod.GET, "/api/scores/ranking/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/scores/stats").authenticated()
+                        // Estatísticas PESSOAIS (requerem autenticação)
                         .requestMatchers(HttpMethod.GET, "/api/scores/my-stats").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/scores/my-position").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/scores/top-by-user").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/scores/best-scores").authenticated()
 
+                        // ========================================
                         // NEGAR TUDO O RESTO
+                        // ========================================
                         .anyRequest().denyAll())
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
-
     }
 
     @Bean
