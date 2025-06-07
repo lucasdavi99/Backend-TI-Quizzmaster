@@ -87,6 +87,17 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/api/scores/my-position").authenticated()
 
                         // ========================================
+                        // ENDPOINTS DE PERFIL DE USUÁRIO
+                        // ========================================
+
+                        // Gerenciamento de perfil (requer autenticação)
+                        .requestMatchers(HttpMethod.GET, "/api/profile/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/profile/stats").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/username").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/profile/password").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/profile/account").authenticated()
+
+                        // ========================================
                         // NEGAR TUDO O RESTO
                         // ========================================
                         .anyRequest().denyAll())
