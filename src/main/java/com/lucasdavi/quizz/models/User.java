@@ -29,24 +29,31 @@ public class User implements Serializable, UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     @Column(unique = true)
     private String username;
+
     @Column(unique = true)
     private String email;
+
     @Column
     private String password;
+
     @Column
     private UserRole role = UserRole.USER;
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    @JsonIgnore
-    private List<Score> scores = new ArrayList<>();
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-public User(String username, String password, String email) {
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Score> scores = new ArrayList<>();
+
+    public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
+        this.createdAt = LocalDateTime.now();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.lucasdavi.quizz.services;
 
 import com.lucasdavi.quizz.dtos.UserProfileDTO;
+import com.lucasdavi.quizz.models.QuizSession;
 import com.lucasdavi.quizz.models.User;
 import com.lucasdavi.quizz.repositories.UserRepository;
 import com.lucasdavi.quizz.repositories.ScoreRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -136,9 +138,27 @@ public class UserProfileService {
             throw new RuntimeException("Current password is incorrect");
         }
 
-        // Remove todos os dados relacionados ao usuário
-        // Os scores e sessões serão removidos automaticamente devido ao CASCADE
+        System.out.println("🗑️ Iniciando exclusão completa do usuário ID: " + currentUser.getId());
+
+        // 1. Remove todas as sessões de quiz do usuário
+        List<QuizSession> userSessions = quizSessionRepository.findByUserOrderByCreatedAtDesc(currentUser);
+        if (!userSessions.isEmpty()) {
+            System.out.println("🗑️ Removendo " + userSessions.size() + " sessão(ões) de quiz");
+            quizSessionRepository.deleteAll(userSessions);
+        }
+
+        // 2. Remove todos os scores do usuário (já tem CASCADE, mas garantindo)
+        List<com.lucasdavi.quizz.models.Score> userScores = scoreRepository.findByUser(currentUser);
+        if (!userScores.isEmpty()) {
+            System.out.println("🗑️ Removendo " + userScores.size() + " score(s)");
+            scoreRepository.deleteAll(userScores);
+        }
+
+        // 3. Por último, remove o usuário
+        System.out.println("🗑️ Removendo usuário: " + currentUser.getUsername());
         userRepository.delete(currentUser);
+
+        System.out.println("✅ Usuário excluído completamente!");
     }
 
     /**
