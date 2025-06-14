@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -182,6 +183,41 @@ public class UserProfileController {
                 return ResponseEntity.status(401).build();
             }
             return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * Endpoint específico para verificar se o usuário atual é administrador
+     */
+    @GetMapping("/admin-check")
+    public ResponseEntity<?> checkAdminStatus() {
+        try {
+            UserProfileDTO profile = userProfileService.getCurrentUserProfile();
+
+            boolean isAdmin = profile.role() != null && profile.role().name().equals("ADMIN");
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("isAdmin", isAdmin);
+            response.put("role", profile.role() != null ? profile.role().name() : "UNKNOWN");
+            response.put("username", profile.username());
+            response.put("userId", profile.id());
+
+            System.out.println("🔍 Admin check para " + profile.username() +
+                    " - Role: " + profile.role() +
+                    " - IsAdmin: " + isAdmin);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("not authenticated")) {
+                return ResponseEntity.status(401).body(Map.of(
+                        "error", "Not authenticated",
+                        "isAdmin", false
+                ));
+            }
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Internal server error",
+                    "isAdmin", false
+            ));
         }
     }
 }
