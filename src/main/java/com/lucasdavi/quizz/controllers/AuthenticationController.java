@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("auth")
 public class AuthenticationController {
@@ -29,20 +31,58 @@ public class AuthenticationController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid AuthenticationDTO data) {
-        var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.password());
-        var auth = this.authManager.authenticate(usernamePassword);
-        var token = this.tokenService.generateToken((User) auth.getPrincipal());
-        return ResponseEntity.ok(new LoginResponseDTO(token));
+        try {
+            var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.password());
+            var auth = this.authManager.authenticate(usernamePassword);
+            var token = this.tokenService.generateToken((User) auth.getPrincipal());
+            return ResponseEntity.ok(new LoginResponseDTO(token));
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "error", "Credenciais inválidas",
+                    "message", "Usuário ou senha incorretos"
+            ));
+        }
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegisterDTO data) {
-        if (this.userRepository.findByUsername(data.login()) != null) {
-            return ResponseEntity.badRequest().build();
+        try {
+            // 🔧 CORREÇÃO: Verificação mais robusta de duplicatas
+            if (this.userRepository.findByUsername(data.login()) != null) {
+                return ResponseEntity.status(409).body(Map.of(
+                        "error", "Nome de usuário já está em uso",
+                        "field", "username",
+                        "message", "Escolha um nome de usuário diferente"
+                ));
+            }
+
+            if (this.userRepository.findByEmail(data.email()) != null) {
+                return ResponseEntity.status(409).body(Map.of(
+                    "error", "Email já está em uso",
+                    "field", "email",
+                    "message", "Este email já está cadastrado no sistema"
+                ));
+            }
+
+            String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
+            User newUser = new User(data.login(), encryptedPassword, data.email());
+            User savedUser = this.userRepository.save(newUser);
+
+            // ✅ CORREÇÃO PRINCIPAL: Retorna JSON consistente
+            return ResponseEntity.status(201).body(Map.of(
+                    "message", "Usuário criado com sucesso",
+                    "userId", savedUser.getId(),
+                    "username", savedUser.getUsername(),
+                    "success", true
+            ));
+
+        } catch (Exception e) {
+            // 🔧 CORREÇÃO: Tratamento de erro robusto
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Erro interno do servidor",
+                    "message", "Não foi possível criar o usuário. Tente novamente.",
+                    "details", e.getMessage()
+            ));
         }
-        String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newuser = new User(data.login(), encryptedPassword, data.email());
-        this.userRepository.save(newuser);
-        return ResponseEntity.ok().build();
     }
 }
