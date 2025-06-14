@@ -49,15 +49,19 @@ public class UserProfileService {
     }
 
     /**
-     * Busca perfil do usuário atual
+     * Busca perfil do usuário atual - CORRIGIDO com role
      */
     public UserProfileDTO getCurrentUserProfile() {
         User currentUser = getCurrentUser();
+
+        System.out.println("📋 Retornando perfil do usuário: " + currentUser.getUsername() +
+                " com role: " + currentUser.getRole());
 
         return new UserProfileDTO(
                 currentUser.getId(),
                 currentUser.getUsername(),
                 currentUser.getEmail(),
+                currentUser.getRole(),
                 currentUser.getCreatedAt(),
                 "active"
         );
@@ -93,6 +97,7 @@ public class UserProfileService {
                 updatedUser.getId(),
                 updatedUser.getUsername(),
                 updatedUser.getEmail(),
+                updatedUser.getRole(),
                 updatedUser.getCreatedAt(),
                 "active"
         );
@@ -197,6 +202,7 @@ public class UserProfileService {
         stats.put("activeSessions", activeSessions);
         stats.put("username", currentUser.getUsername());
         stats.put("memberSince", currentUser.getCreatedAt());
+        stats.put("role", currentUser.getRole());
 
         return stats;
     }

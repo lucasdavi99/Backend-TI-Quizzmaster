@@ -47,6 +47,12 @@ public class SecurityConfigurations {
                         // ENDPOINTS EXCLUSIVOS PARA ADMIN
                         // ========================================
 
+                        // Gerenciamento de usuários
+                        .requestMatchers(HttpMethod.GET, "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/admin/**").hasRole("ADMIN")
+
                         // Gerenciamento de perguntas e respostas
                         .requestMatchers(HttpMethod.POST, "/api/questions").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasRole("ADMIN")
@@ -64,7 +70,7 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.POST, "/api/scores").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/scores/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/scores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/scores").hasRole("ADMIN") // Lista completa de scores
+                        .requestMatchers(HttpMethod.GET, "/api/scores").hasRole("ADMIN")
 
                         // ========================================
                         // ENDPOINTS PARA USUÁRIOS AUTENTICADOS
