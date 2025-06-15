@@ -6,6 +6,7 @@ import com.lucasdavi.quizz.models.Question;
 import com.lucasdavi.quizz.repositories.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -37,26 +38,37 @@ public class QuestionService {
                                 .toList()
                 ));
     }
+
+    @Transactional(readOnly = true)
     public List<QuestionDTO> getAllQuestionsDTO() {
-        return this.questionRepository.findAll().stream()
-                .map(question -> new QuestionDTO(
-                    question.getId(),
-                    question.getContent(),
-                    question.getAnswers().stream()
-                            .map(answer -> new AnswerDTO(answer.getId(), answer.getContent(), answer.getIsCorrect()))
-                            .toList()
-                ))
+        List<Question> questions = questionRepository.findAll();
+
+        return questions.stream()
+                .map(question -> {
+                    List<AnswerDTO> answerDTOs = question.getAnswers().stream()
+                            .map(answer -> new AnswerDTO(
+                                    answer.getId(),
+                                    answer.getContent(),
+                                    answer.getIsCorrect()
+                            ))
+                            .toList();
+
+                    return new QuestionDTO(
+                            question.getId(),
+                            question.getContent(),
+                            answerDTOs
+                    );
+                })
                 .toList();
     }
 
+    @Transactional
     public QuestionDTO updateQuestionById(Long id, QuestionDTO questionDTO) {
         Optional<Question> questionData = this.questionRepository.findById(id);
         if (questionData.isPresent()) {
             Question question = questionData.get();
             question.setContent(questionDTO.content());
 
-            // Atualiza as respostas existentes ou adiciona novas
-            // Importante: esta implementação substitui todas as respostas existentes
             question.getAnswers().clear();
             question.getAnswers().addAll(questionDTO.answers().stream()
                     .map(answerDTO -> answerDTO.toAnswer(question))
@@ -69,7 +81,7 @@ public class QuestionService {
                     updatedQuestion.getId(),
                     updatedQuestion.getContent(),
                     updatedQuestion.getAnswers().stream()
-                            .map(answer -> new AnswerDTO(answer.getId(), answer.getContent(), answer.getIsCorrect()))
+                            .map(answer -> new AnswerDTO(answer.getId(), answer.getContent(), answer.getIsCorrect())) // ✅ MÉTODO CORRETO
                             .toList()
             );
         } else {

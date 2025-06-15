@@ -29,12 +29,12 @@ public class SecurityConfigurations {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         // ========================================
-                        // ENDPOINTS PÚBLICOS (sem autenticação)
+                        // ENDPOINTS PÚBLICOS (sem autenticação) - PRIMEIRO
                         // ========================================
-
-                        // Autenticação
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/forgot-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/reset-password").permitAll()
 
                         // Rankings e estatísticas PÚBLICAS
                         .requestMatchers(HttpMethod.GET, "/api/scores/ranking").permitAll()
@@ -44,36 +44,38 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/api/scores/top-by-user").permitAll()
 
                         // ========================================
-                        // ENDPOINTS EXCLUSIVOS PARA ADMIN
+                        // 🔧 ADMIN ENDPOINTS - SEGUNDO (mais específico primeiro)
                         // ========================================
 
-                        // Gerenciamento de usuários
-                        .requestMatchers(HttpMethod.GET, "/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/admin/**").hasRole("ADMIN")
+                        // 🔧 CRÍTICO: Perguntas e respostas ADMIN - PRIMEIRO
+                        .requestMatchers(HttpMethod.GET, "/api/questions/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/questions").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/questions").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/questions/**").hasAuthority("ROLE_ADMIN")
 
-                        // Gerenciamento de perguntas e respostas
-                        .requestMatchers(HttpMethod.POST, "/api/questions").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/questions/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/answers").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/answers/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/answers/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/answers/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/answers").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/answers").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/answers/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/answers/**").hasAuthority("ROLE_ADMIN")
 
-                        // Endpoints de limpeza e manutenção
-                        .requestMatchers(HttpMethod.DELETE, "/api/quiz-session/cleanup/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/quiz-session/finish-all").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/quiz-session/report/**").hasRole("ADMIN")
+                        // Gerenciamento de usuários ADMIN
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                        // Gerenciamento direto de scores (criar/editar scores manualmente)
-                        .requestMatchers(HttpMethod.POST, "/api/scores").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/scores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/scores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/scores").hasRole("ADMIN")
+                        // Endpoints de limpeza e manutenção ADMIN
+                        .requestMatchers(HttpMethod.DELETE, "/api/quiz-session/cleanup/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/quiz-session/finish-all").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/quiz-session/report/**").hasAuthority("ROLE_ADMIN")
+
+                        // Gerenciamento direto de scores ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/scores").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/scores/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/scores/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/scores").hasAuthority("ROLE_ADMIN")
 
                         // ========================================
-                        // ENDPOINTS PARA USUÁRIOS AUTENTICADOS
+                        // ENDPOINTS PARA USUÁRIOS AUTENTICADOS - TERCEIRO
                         // ========================================
 
                         // Quiz sessions (jogar)
@@ -82,21 +84,13 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/api/quiz-session/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/quiz-session/history").authenticated()
 
-                        // Visualização de perguntas (para jogar)
-                        .requestMatchers(HttpMethod.GET, "/api/questions").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/questions/*").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/answers").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/answers/*").authenticated()
-
-                        // Estatísticas PESSOAIS (requerem autenticação)
+                        // Estatísticas PESSOAIS
                         .requestMatchers(HttpMethod.GET, "/api/scores/my-stats").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/scores/my-position").authenticated()
 
                         // ========================================
-                        // ENDPOINTS DE PERFIL DE USUÁRIO
+                        // ENDPOINTS DE PERFIL DE USUÁRIO - QUARTO
                         // ========================================
-
-                        // Gerenciamento de perfil (requer autenticação)
                         .requestMatchers(HttpMethod.GET, "/api/profile/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/profile/stats").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/profile/username").authenticated()
@@ -104,7 +98,7 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.DELETE, "/api/profile/account").authenticated()
 
                         // ========================================
-                        // NEGAR TUDO O RESTO
+                        // NEGAR TUDO O RESTO - ÚLTIMO
                         // ========================================
                         .anyRequest().denyAll())
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
