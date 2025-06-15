@@ -4,7 +4,7 @@ import com.lucasdavi.quizz.dtos.*;
 import com.lucasdavi.quizz.exceptions.EntityNotFoundException;
 import com.lucasdavi.quizz.models.*;
 import com.lucasdavi.quizz.repositories.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -156,22 +156,30 @@ public class QuizSessionService {
 
     @Transactional
     public QuizSessionResultDTO answerQuestion(Long sessionId, AnswerQuestionDTO dto) {
+        QuizSession session = quizSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+        
+        // ✅ Forçar carregamento de todas as relações necessárias
+        session.getQuestions().size(); // Carregar questions
+        session.getQuestions().forEach(q -> q.getAnswers().size()); // Carregar answers de cada question
+        
+        // Verificar se a sessão pertence ao usuário atual
         User currentUser = getCurrentUser();
-
-        QuizSession session = getSessionWithOrderedQuestions(sessionId);
-
         if (!session.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Access denied to this quiz session");
+            throw new RuntimeException("Unauthorized access to session");
         }
 
         if (!session.getIsActive()) {
-            throw new RuntimeException("Quiz session is not active");
+            throw new RuntimeException("Session is not active");
         }
 
         Question currentQuestion = session.getCurrentQuestion();
         if (currentQuestion == null) {
             throw new RuntimeException("No current question available");
         }
+
+        // Forçar carregamento das answers da pergunta atual
+        currentQuestion.getAnswers().size();
 
         Answer selectedAnswer = answerRepository.findById(dto.answerId())
                 .orElseThrow(() -> new EntityNotFoundException("Answer not found"));
@@ -211,13 +219,18 @@ public class QuizSessionService {
         }
     }
 
+    @Transactional(readOnly = true)
     public QuizSessionStateDTO getSessionState(Long sessionId) {
+        QuizSession session = quizSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+        
+        // ✅ Forçar carregamento de todas as relações
+        session.getQuestions().size();
+        session.getQuestions().forEach(q -> q.getAnswers().size());
+        
         User currentUser = getCurrentUser();
-
-        QuizSession session = getSessionWithOrderedQuestions(sessionId);
-
         if (!session.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Access denied to this quiz session");
+            throw new RuntimeException("Unauthorized access to session");
         }
 
         return convertToStateDTO(session);
