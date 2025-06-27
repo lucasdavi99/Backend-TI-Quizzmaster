@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -76,8 +77,10 @@ public class QuizSessionController {
         try {
             List<QuizSessionResultDTO> history = quizSessionService.getUserQuizHistory();
             return ResponseEntity.ok(history);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            System.err.println("❌ History error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.ok(new ArrayList<>());
         }
     }
 

@@ -40,6 +40,7 @@ public class User implements Serializable, UserDetails {
     private String password;
 
     @Column
+    @Enumerated(EnumType.STRING)
     private UserRole role = UserRole.USER;
 
     @Column(name = "created_at")

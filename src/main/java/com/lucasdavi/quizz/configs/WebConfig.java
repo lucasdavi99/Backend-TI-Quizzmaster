@@ -11,13 +11,14 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(
-                        "https://lucasdavi.tech",
+                        "https://lucasdavi.fun",
                         "http://localhost:3000",
                         "http://127.0.0.1:5500",
                         "http://localhost:5500",
                         "http://127.0.0.1:8080",
                         "http://localhost:8080",
-                        "http://143.198.183.162"
+                        "http://143.198.183.162",
+                        "http://localhost:4200"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD") // 🔧 ADICIONADO HEAD
                 .allowedHeaders("*")

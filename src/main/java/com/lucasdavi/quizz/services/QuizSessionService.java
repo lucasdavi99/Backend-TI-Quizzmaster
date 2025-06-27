@@ -12,9 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -236,13 +234,21 @@ public class QuizSessionService {
         return convertToStateDTO(session);
     }
 
+    @Transactional(readOnly = true)
     public List<QuizSessionResultDTO> getUserQuizHistory() {
-        User currentUser = getCurrentUser();
-        List<QuizSession> completedSessions = quizSessionRepository.findCompletedSessionsByUserOrderByScoreDesc(currentUser);
+        try {
+            User currentUser = getCurrentUser();
+            List<QuizSession> completedSessions = quizSessionRepository.findCompletedSessionsByUserOrderByScoreDesc(currentUser);
 
-        return completedSessions.stream()
-                .map(this::convertToResultDTO)
-                .toList();
+            return completedSessions.stream()
+                    .map(this::convertToResultDTO)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            System.err.println("❌ Service error: " + e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     private void saveScoreToDatabase(QuizSession session) {

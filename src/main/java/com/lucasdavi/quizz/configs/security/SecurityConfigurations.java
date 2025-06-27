@@ -78,9 +78,8 @@ public class SecurityConfigurations {
                         // ENDPOINTS PARA USUÁRIOS AUTENTICADOS - TERCEIRO
                         // ========================================
 
-                        // Quiz sessions (jogar)
-                        .requestMatchers("/api/quiz-session/start").authenticated()
-                        .requestMatchers("/api/quiz-session/*/answer").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/quiz-session/start").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/quiz-session/*/answer").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/quiz-session/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/quiz-session/history").authenticated()
 
