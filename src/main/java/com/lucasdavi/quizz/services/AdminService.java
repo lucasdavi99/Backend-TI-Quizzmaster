@@ -2,6 +2,7 @@ package com.lucasdavi.quizz.services;
 
 import com.lucasdavi.quizz.dtos.AdminUserDTO;
 import com.lucasdavi.quizz.dtos.CreateAdminDTO;
+import com.lucasdavi.quizz.enums.SessionStatus;
 import com.lucasdavi.quizz.enums.UserRole;
 import com.lucasdavi.quizz.models.QuizSession;
 import com.lucasdavi.quizz.models.Score;
@@ -237,8 +238,12 @@ public class AdminService {
         Long totalPoints = scoreRepository.getTotalPointsByUser(user);
         if (totalPoints == null) totalPoints = 0L;
 
-        // Estatísticas de sessões
-        long activeSessions = quizSessionRepository.countActiveSessionsByUser(user);
+        // 🔧 CORRIGIDO: Estatísticas de sessões usando o novo sistema
+        long inProgressSessions = quizSessionRepository.countByUserAndStatus(user, SessionStatus.IN_PROGRESS);
+        long completedSessions = quizSessionRepository.countByUserAndStatus(user, SessionStatus.COMPLETED);
+        long interruptedSessions = quizSessionRepository.countByUserAndStatus(user, SessionStatus.INTERRUPTED);
+        long totalSessions = inProgressSessions + completedSessions + interruptedSessions;
+
         List<QuizSession> allSessions = quizSessionRepository.findByUserOrderByCreatedAtDesc(user);
 
         LocalDateTime lastGameDate = allSessions.stream()
@@ -258,10 +263,19 @@ public class AdminService {
         stats.put("averageScore", Math.round(averageScore * 100.0) / 100.0);
         stats.put("totalPoints", totalPoints);
         stats.put("rankingPosition", rankingPosition);
-        stats.put("activeSessions", activeSessions);
+
+        // 🆕 NOVO: Estatísticas detalhadas por status
+        stats.put("totalSessions", totalSessions);
+        stats.put("inProgressSessions", inProgressSessions);
+        stats.put("completedSessions", completedSessions);
+        stats.put("interruptedSessions", interruptedSessions);
+
+        // Taxa de completude
+        double completionRate = totalSessions > 0 ? (double) completedSessions / totalSessions * 100.0 : 0.0;
+        stats.put("completionRate", Math.round(completionRate * 100.0) / 100.0);
+
         stats.put("lastGameDate", lastGameDate);
         stats.put("memberSince", user.getCreatedAt());
-        stats.put("totalSessions", allSessions.size());
 
         return stats;
     }
@@ -279,8 +293,13 @@ public class AdminService {
         long totalAdmins = userRepository.findAll().stream()
                 .filter(user -> user.getRole() == UserRole.ADMIN)
                 .count();
+
+        // 🔧 CORRIGIDO: Usa os novos métodos baseados em SessionStatus
         long totalSessions = quizSessionRepository.count();
-        long activeSessions = quizSessionRepository.countByIsActiveTrue();
+        long inProgressSessions = quizSessionRepository.countByStatus(SessionStatus.IN_PROGRESS);
+        long completedSessions = quizSessionRepository.countByStatus(SessionStatus.COMPLETED);
+        long interruptedSessions = quizSessionRepository.countByStatus(SessionStatus.INTERRUPTED);
+
         long totalScores = scoreRepository.count();
 
         // Estatísticas de scores
@@ -294,13 +313,19 @@ public class AdminService {
         stats.put("totalUsers", totalUsers);
         stats.put("totalAdmins", totalAdmins);
         stats.put("totalSessions", totalSessions);
-        stats.put("activeSessions", activeSessions);
+        stats.put("inProgressSessions", inProgressSessions);
+        stats.put("completedSessions", completedSessions);
+        stats.put("interruptedSessions", interruptedSessions);
         stats.put("totalScores", totalScores);
         stats.put("highestScore", highestScore != null ? highestScore : 0);
         stats.put("averageScore", averageScore != null ? Math.round(averageScore * 100.0) / 100.0 : 0.0);
         stats.put("totalPoints", totalPoints != null ? totalPoints : 0L);
         stats.put("activeUsers", activeUsers);
         stats.put("inactiveUsers", totalUsers - activeUsers);
+
+        // 🆕 NOVO: Taxa de completude global
+        double globalCompletionRate = totalSessions > 0 ? (double) completedSessions / totalSessions * 100.0 : 0.0;
+        stats.put("globalCompletionRate", Math.round(globalCompletionRate * 100.0) / 100.0);
 
         return stats;
     }
@@ -313,62 +338,60 @@ public class AdminService {
 
         Map<String, Object> health = new HashMap<>();
 
-        // Sessões problemáticas
-        long activeSessionsCount = quizSessionRepository.countByIsActiveTrue();
-        long zeroScoreActiveCount = quizSessionRepository.countByScoreAndIsActiveTrue(0);
-        long zeroScoreFinishedCount = quizSessionRepository.countByScoreAndIsActiveFalse(0);
-        long totalZeroScoreCount = quizSessionRepository.countByScore(0);
+        // 🔧 CORRIGIDO: Usa novos métodos para verificar saúde do sistema
+        long inProgressSessionsCount = quizSessionRepository.countByStatus(SessionStatus.IN_PROGRESS);
+        long interruptedSessionsCount = quizSessionRepository.countByStatus(SessionStatus.INTERRUPTED);
+        long completedSessionsCount = quizSessionRepository.countByStatus(SessionStatus.COMPLETED);
 
-        // Sessões antigas (mais de 7 dias ativas)
+        // Busca sessões em progresso antigas (potencialmente abandonadas)
         LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
-        List<QuizSession> oldActiveSessions = quizSessionRepository.findAllActiveSessionsOlderThan(weekAgo);
+        List<QuizSession> oldInProgressSessions = quizSessionRepository.findInProgressSessionsOlderThan(weekAgo);
 
         // Determina status geral do sistema
         String systemStatus = "healthy";
         List<String> warnings = new ArrayList<>();
         List<String> issues = new ArrayList<>();
 
-        if (activeSessionsCount > 100) {
-            issues.add("Muitas sessões ativas: " + activeSessionsCount);
+        if (inProgressSessionsCount > 100) {
+            issues.add("Muitas sessões em progresso: " + inProgressSessionsCount);
             systemStatus = "critical";
-        } else if (activeSessionsCount > 50) {
-            warnings.add("Sessões ativas elevadas: " + activeSessionsCount);
+        } else if (inProgressSessionsCount > 50) {
+            warnings.add("Sessões em progresso elevadas: " + inProgressSessionsCount);
             if (systemStatus.equals("healthy")) systemStatus = "warning";
         }
 
-        if (totalZeroScoreCount > 200) {
-            issues.add("Muitas sessões com score zero: " + totalZeroScoreCount);
+        if (interruptedSessionsCount > 200) {
+            issues.add("Muitas sessões interrompidas: " + interruptedSessionsCount);
             systemStatus = "critical";
-        } else if (totalZeroScoreCount > 100) {
-            warnings.add("Sessões score zero elevadas: " + totalZeroScoreCount);
+        } else if (interruptedSessionsCount > 100) {
+            warnings.add("Sessões interrompidas elevadas: " + interruptedSessionsCount);
             if (systemStatus.equals("healthy")) systemStatus = "warning";
         }
 
-        if (!oldActiveSessions.isEmpty()) {
-            warnings.add("Sessões abandonadas antigas: " + oldActiveSessions.size());
+        if (!oldInProgressSessions.isEmpty()) {
+            warnings.add("Sessões abandonadas antigas: " + oldInProgressSessions.size());
             if (systemStatus.equals("healthy")) systemStatus = "warning";
         }
 
         health.put("systemStatus", systemStatus);
-        health.put("activeSessions", activeSessionsCount);
-        health.put("zeroScoreActiveSessions", zeroScoreActiveCount);
-        health.put("zeroScoreFinishedSessions", zeroScoreFinishedCount);
-        health.put("totalZeroScoreSessions", totalZeroScoreCount);
-        health.put("oldAbandonedSessions", oldActiveSessions.size());
+        health.put("inProgressSessions", inProgressSessionsCount);
+        health.put("completedSessions", completedSessionsCount);
+        health.put("interruptedSessions", interruptedSessionsCount);
+        health.put("oldAbandonedSessions", oldInProgressSessions.size());
         health.put("warnings", warnings);
         health.put("issues", issues);
         health.put("lastCheck", LocalDateTime.now());
-        health.put("needsCleanup", totalZeroScoreCount > 50 || activeSessionsCount > 20);
+        health.put("needsCleanup", interruptedSessionsCount > 50 || inProgressSessionsCount > 20);
 
         // Recomendações
         List<String> recommendations = new ArrayList<>();
-        if (totalZeroScoreCount > 100) {
-            recommendations.add("Execute limpeza de score zero");
+        if (interruptedSessionsCount > 100) {
+            recommendations.add("Execute limpeza de sessões interrompidas");
         }
-        if (activeSessionsCount > 50) {
+        if (inProgressSessionsCount > 50) {
             recommendations.add("Execute limpeza de sessões abandonadas");
         }
-        if (oldActiveSessions.size() > 10) {
+        if (oldInProgressSessions.size() > 10) {
             recommendations.add("Execute limpeza de sessões antigas");
         }
 
@@ -390,24 +413,23 @@ public class AdminService {
         Map<String, Object> results = new HashMap<>();
 
         try {
-            // 1. Limpeza inteligente de score zero
+            // 1. Limpeza inteligente usando o ScheduledCleanupService
             int zeroScoreDeleted = scheduledCleanupService.intelligentZeroScoreCleanup();
             results.put("zeroScoreSessionsDeleted", zeroScoreDeleted);
 
-            // 2. Limpeza de sessões abandonadas (mais de 1 dia)
+            // 2. 🔧 CORRIGIDO: Limpeza de sessões abandonadas usando novos métodos
             LocalDateTime oneDayAgo = LocalDateTime.now().minusDays(1);
-            List<QuizSession> abandonedSessions = quizSessionRepository.findAllActiveSessionsOlderThan(oneDayAgo);
+            List<QuizSession> abandonedSessions = quizSessionRepository.findInProgressSessionsOlderThan(oneDayAgo);
             if (!abandonedSessions.isEmpty()) {
                 quizSessionRepository.deleteAll(abandonedSessions);
             }
             results.put("abandonedSessionsDeleted", abandonedSessions.size());
 
-            // 3. Finaliza sessões ativas muito antigas (mais de 7 dias)
+            // 3. Finaliza sessões em progresso muito antigas (mais de 7 dias)
             LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
-            List<QuizSession> veryOldSessions = quizSessionRepository.findAllActiveSessionsOlderThan(weekAgo);
+            List<QuizSession> veryOldSessions = quizSessionRepository.findInProgressSessionsOlderThan(weekAgo);
             veryOldSessions.forEach(session -> {
-                session.setIsActive(false);
-                session.setFinishedAt(LocalDateTime.now());
+                session.interruptSession(); // 🔧 Usa novo método
             });
             if (!veryOldSessions.isEmpty()) {
                 quizSessionRepository.saveAll(veryOldSessions);
@@ -457,7 +479,9 @@ public class AdminService {
                 ? scoreRepository.getTotalPointsByUser(user).intValue() : 0;
 
         long rankingPosition = calculateUserRankingPosition(user);
-        long activeSessions = quizSessionRepository.countActiveSessionsByUser(user);
+
+        // 🔧 CORRIGIDO: Usa novo método para contar sessões em progresso
+        long activeSessions = quizSessionRepository.countByUserAndStatus(user, SessionStatus.IN_PROGRESS);
 
         // Data do último jogo
         LocalDateTime lastGameDate = quizSessionRepository.findByUserOrderByCreatedAtDesc(user)

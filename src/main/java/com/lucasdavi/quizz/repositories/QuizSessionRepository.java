@@ -1,5 +1,6 @@
 package com.lucasdavi.quizz.repositories;
 
+import com.lucasdavi.quizz.enums.SessionStatus;
 import com.lucasdavi.quizz.models.QuizSession;
 import com.lucasdavi.quizz.models.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> {
+
+    // MÉTODOS EXISTENTES (mantidos para compatibilidade)
     List<QuizSession> findByUserOrderByCreatedAtDesc(User user);
 
     @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = true")
@@ -19,100 +22,144 @@ public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> 
     @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = false ORDER BY qs.score DESC")
     List<QuizSession> findCompletedSessionsByUserOrderByScoreDesc(@Param("user") User user);
 
-    // NOVOS MÉTODOS para limpeza de sessões abandonadas
-
-    /**
-     * Busca todas as sessões ativas de um usuário (útil para limpeza geral)
-     */
     @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = true")
     List<QuizSession> findActiveSessionsByUser(@Param("user") User user);
 
-    /**
-     * Busca sessões ativas criadas antes de uma data específica
-     * Útil para limpar sessões abandonadas há muito tempo
-     */
     @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = true AND qs.createdAt < :cutoffDate")
     List<QuizSession> findActiveSessionsOlderThan(@Param("user") User user, @Param("cutoffDate") LocalDateTime cutoffDate);
 
-    /**
-     * Busca sessões que estão ativas há mais de X horas
-     * Útil para identificar sessões realmente abandonadas
-     */
-    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = true AND qs.createdAt < :hoursAgo")
-    List<QuizSession> findActiveSessionsOlderThanHours(@Param("user") User user, @Param("hoursAgo") LocalDateTime hoursAgo);
-
-    /**
-     * Conta quantas sessões ativas um usuário possui
-     */
     @Query("SELECT COUNT(qs) FROM QuizSession qs WHERE qs.user = :user AND qs.isActive = true")
     long countActiveSessionsByUser(@Param("user") User user);
 
-    /**
-     * Busca sessões incompletas (ativas ou não finalizadas)
-     * que não foram tocadas há mais de X tempo
-     */
-    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user " +
-            "AND (qs.isActive = true OR qs.finishedAt IS NULL) " +
-            "AND qs.createdAt < :cutoffDate")
-    List<QuizSession> findIncompleteSessionsOlderThan(@Param("user") User user, @Param("cutoffDate") LocalDateTime cutoffDate);
-
-    // MÉTODOS para o ScheduledCleanupService
+    // 🆕 NOVOS MÉTODOS COM SessionStatus
 
     /**
-     * Busca todas as sessões ativas criadas antes de uma data (para limpeza automática)
+     * Busca sessões por usuário e status específico
      */
+    List<QuizSession> findByUserAndStatusOrderByCreatedAtDesc(User user, SessionStatus status);
+
+    /**
+     * Busca sessões em progresso de um usuário
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.status = 'IN_PROGRESS'")
+    List<QuizSession> findInProgressSessionsByUser(@Param("user") User user);
+
+    /**
+     * Busca sessões completadas de um usuário ordenadas por score
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.status = 'COMPLETED' ORDER BY qs.score DESC")
+    List<QuizSession> findCompletedSessionsByUserOrderByScore(@Param("user") User user);
+
+    /**
+     * Busca sessões interrompidas de um usuário
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.status = 'INTERRUPTED' ORDER BY qs.createdAt DESC")
+    List<QuizSession> findInterruptedSessionsByUser(@Param("user") User user);
+
+    /**
+     * Busca sessões finalizadas (completas ou interrompidas) de um usuário
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.status IN ('COMPLETED', 'INTERRUPTED') ORDER BY qs.createdAt DESC")
+    List<QuizSession> findFinishedSessionsByUser(@Param("user") User user);
+
+    /**
+     * Conta sessões por status de um usuário
+     */
+    long countByUserAndStatus(User user, SessionStatus status);
+
+    /**
+     * Busca sessões por status criadas antes de uma data
+     */
+    List<QuizSession> findByStatusAndCreatedAtBefore(SessionStatus status, LocalDateTime cutoffDate);
+
+    /**
+     * Busca sessões em progresso antigas (potencialmente abandonadas)
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.status = 'IN_PROGRESS' AND qs.createdAt < :cutoffDate")
+    List<QuizSession> findAbandonedInProgressSessions(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+    /**
+     * Estatísticas: conta total de sessões por status
+     */
+    long countByStatus(SessionStatus status);
+
+    /**
+     * Busca sessões em progresso de um usuário criadas antes de uma data
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.user = :user AND qs.status = 'IN_PROGRESS' AND qs.createdAt < :cutoffDate")
+    List<QuizSession> findUserInProgressSessionsOlderThan(@Param("user") User user, @Param("cutoffDate") LocalDateTime cutoffDate);
+
+    /**
+     * Busca as melhores sessões completadas (por score) globalmente
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.status = 'COMPLETED' ORDER BY qs.score DESC")
+    List<QuizSession> findTopCompletedSessionsByScore();
+
+    /**
+     * Estatísticas de completude por usuário
+     */
+    @Query("SELECT COUNT(qs) as total, " +
+            "SUM(CASE WHEN qs.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed, " +
+            "SUM(CASE WHEN qs.status = 'INTERRUPTED' THEN 1 ELSE 0 END) as interrupted, " +
+            "SUM(CASE WHEN qs.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgress " +
+            "FROM QuizSession qs WHERE qs.user = :user")
+    Object[] getUserSessionStats(@Param("user") User user);
+
+    /**
+     * Busca sessões com score específico e status específico
+     */
+    List<QuizSession> findByScoreAndStatus(Integer score, SessionStatus status);
+
+    // MÉTODOS DE LIMPEZA ATUALIZADOS
+
+    /**
+     * Busca sessões em progresso criadas antes de uma data (para limpeza automática)
+     */
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.status = 'IN_PROGRESS' AND qs.createdAt < :cutoffDate")
+    List<QuizSession> findInProgressSessionsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+    /**
+     * Conta sessões em progresso no sistema
+     */
+    @Query("SELECT COUNT(qs) FROM QuizSession qs WHERE qs.status = 'IN_PROGRESS'")
+    long countInProgressSessions();
+
+    // MÉTODOS DE COMPATIBILIDADE (podem ser removidos no futuro)
+
+    /**
+     * @deprecated Use findByStatusAndCreatedAtBefore com SessionStatus.IN_PROGRESS
+     */
+    @Deprecated
     List<QuizSession> findByIsActiveTrueAndCreatedAtBefore(LocalDateTime cutoffDate);
 
     /**
-     * Conta o total de sessões ativas no sistema (para monitoramento)
+     * @deprecated Use countInProgressSessions
      */
+    @Deprecated
     long countByIsActiveTrue();
 
     /**
-     * Busca sessões ativas de todos os usuários criadas antes de uma data
+     * @deprecated Use findInProgressSessionsOlderThan
      */
+    @Deprecated
     @Query("SELECT qs FROM QuizSession qs WHERE qs.isActive = true AND qs.createdAt < :cutoffDate")
     List<QuizSession> findAllActiveSessionsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
 
-    // MÉTODOS para limpeza de sessões com SCORE ZERO
+    // MÉTODOS PARA SCORE ZERO (atualizados)
 
     /**
-     * Busca sessões por score específico
+     * Busca sessões por score específico e status específico
      */
-    List<QuizSession> findByScore(Integer score);
+    List<QuizSession> findByScoreAndStatusAndCreatedAtBefore(Integer score, SessionStatus status, LocalDateTime cutoffDate);
 
     /**
-     * Busca sessões finalizadas com score específico criadas antes de uma data
+     * Conta sessões por score e status
      */
-    List<QuizSession> findByScoreAndIsActiveFalseAndCreatedAtBefore(Integer score, LocalDateTime cutoffDate);
+    long countByScoreAndStatus(Integer score, SessionStatus status);
 
     /**
-     * Busca sessões ativas com score específico
+     * Busca sessões interrompidas com score zero (para limpeza)
      */
-    List<QuizSession> findByScoreAndIsActiveTrue(Integer score);
-
-    /**
-     * Busca sessões ativas com score específico criadas antes de uma data
-     */
-    List<QuizSession> findByScoreAndIsActiveTrueAndCreatedAtBefore(Integer score, LocalDateTime cutoffDate);
-
-    /**
-     * Busca sessões com score específico criadas antes de uma data (independente do status)
-     */
-    List<QuizSession> findByScoreAndCreatedAtBefore(Integer score, LocalDateTime cutoffDate);
-
-    /**
-     * Conta sessões por score e status ativo
-     */
-    long countByScoreAndIsActiveTrue(Integer score);
-
-    /**
-     * Conta sessões por score e status inativo
-     */
-    long countByScoreAndIsActiveFalse(Integer score);
-
-    /**
-     * Conta sessões por score (qualquer status)
-     */
-    long countByScore(Integer score);
+    @Query("SELECT qs FROM QuizSession qs WHERE qs.score = 0 AND qs.status = 'INTERRUPTED' AND qs.createdAt < :cutoffDate")
+    List<QuizSession> findZeroScoreInterruptedSessionsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
 }

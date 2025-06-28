@@ -1,6 +1,7 @@
 package com.lucasdavi.quizz.services;
 
 import com.lucasdavi.quizz.dtos.*;
+import com.lucasdavi.quizz.enums.SessionStatus;
 import com.lucasdavi.quizz.exceptions.EntityNotFoundException;
 import com.lucasdavi.quizz.models.*;
 import com.lucasdavi.quizz.repositories.*;
@@ -43,16 +44,17 @@ public class QuizSessionService {
     public QuizSessionStateDTO startNewSession(StartQuizSessionDTO dto) {
         User currentUser = getCurrentUser();
 
+        // 🔧 ATUALIZADO: Busca sessões ativas usando o novo status
         Optional<QuizSession> activeSession = quizSessionRepository.findActiveSessionByUser(currentUser);
         if (activeSession.isPresent()) {
             QuizSession previousSession = activeSession.get();
-            System.out.println("⚠️ Finalizando sessão anterior inativa - ID: " + previousSession.getId());
+            System.out.println("⚠️ Finalizando sessão anterior ativa - ID: " + previousSession.getId());
 
-            previousSession.setIsActive(false);
-            previousSession.setFinishedAt(LocalDateTime.now());
+            // 🆕 NOVO: Usa o novo método para interromper sessão anterior
+            previousSession.interruptSession();
             quizSessionRepository.save(previousSession);
 
-            System.out.println("✅ Sessão anterior finalizada automaticamente");
+            System.out.println("✅ Sessão anterior interrompida automaticamente");
         }
 
         List<Question> allQuestions = questionRepository.findAll();
@@ -62,19 +64,20 @@ public class QuizSessionService {
 
         Collections.shuffle(allQuestions);
         List<Question> selectedQuestions = allQuestions.subList(0, dto.numberOfQuestions());
-
         selectedQuestions.sort((q1, q2) -> q1.getId().compareTo(q2.getId()));
 
-        // Cria nova sessão
+        // 🆕 NOVO: Cria sessão com status IN_PROGRESS
         QuizSession session = new QuizSession();
         session.setUser(currentUser);
         session.setQuestions(selectedQuestions);
         session.setCurrentQuestionIndex(0);
         session.setScore(0);
+        session.setStatus(SessionStatus.IN_PROGRESS);
         session.setIsActive(true);
 
         QuizSession savedSession = quizSessionRepository.save(session);
-        System.out.println("🎮 Nova sessão criada - ID: " + savedSession.getId());
+        System.out.println("🎮 Nova sessão criada - ID: " + savedSession.getId() +
+                ", Status: " + savedSession.getStatus().getDescription());
 
         return convertToStateDTO(savedSession);
     }
@@ -109,9 +112,9 @@ public class QuizSessionService {
 
         System.out.println("⏹️ Finalizando " + activeSessions.size() + " sessão(ões) ativa(s)");
 
+        // 🆕 NOVO: Usa o novo método para interromper sessões
         activeSessions.forEach(session -> {
-            session.setIsActive(false);
-            session.setFinishedAt(LocalDateTime.now());
+            session.interruptSession();
         });
 
         quizSessionRepository.saveAll(activeSessions);
@@ -139,36 +142,24 @@ public class QuizSessionService {
         return oldAbandonedSessions.size();
     }
 
-    private QuizSession getSessionWithOrderedQuestions(Long sessionId) {
-        QuizSession session = quizSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new EntityNotFoundException("Quiz session not found"));
-
-        List<Question> orderedQuestions = session.getQuestions()
-                .stream()
-                .sorted((q1, q2) -> q1.getId().compareTo(q2.getId()))
-                .collect(Collectors.toList());
-
-        session.setQuestions(orderedQuestions);
-        return session;
-    }
-
     @Transactional
     public QuizSessionResultDTO answerQuestion(Long sessionId, AnswerQuestionDTO dto) {
         QuizSession session = quizSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
-        
+
         // ✅ Forçar carregamento de todas as relações necessárias
         session.getQuestions().size(); // Carregar questions
         session.getQuestions().forEach(q -> q.getAnswers().size()); // Carregar answers de cada question
-        
+
         // Verificar se a sessão pertence ao usuário atual
         User currentUser = getCurrentUser();
         if (!session.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Unauthorized access to session");
         }
 
-        if (!session.getIsActive()) {
-            throw new RuntimeException("Session is not active");
+        // 🆕 NOVO: Verifica se a sessão está em progresso
+        if (session.getStatus() != SessionStatus.IN_PROGRESS) {
+            throw new RuntimeException("Session is not in progress - Status: " + session.getStatus().getDescription());
         }
 
         Question currentQuestion = session.getCurrentQuestion();
@@ -182,38 +173,47 @@ public class QuizSessionService {
         Answer selectedAnswer = answerRepository.findById(dto.answerId())
                 .orElseThrow(() -> new EntityNotFoundException("Answer not found"));
 
-        System.out.println("🔍 DEBUG AFTER FIX:");
+        System.out.println("🔍 PROCESSANDO RESPOSTA:");
         System.out.println("   Current Question ID: " + currentQuestion.getId());
-        System.out.println("   Current Question Content: " + currentQuestion.getContent().substring(0, Math.min(50, currentQuestion.getContent().length())));
         System.out.println("   Selected Answer ID: " + selectedAnswer.getId());
-        System.out.println("   Answer's Question ID: " + selectedAnswer.getQuestion().getId());
         System.out.println("   Session ID: " + session.getId());
         System.out.println("   Current Index: " + session.getCurrentQuestionIndex());
+        System.out.println("   Total Questions: " + session.getQuestions().size());
 
         if (!selectedAnswer.getQuestion().getId().equals(currentQuestion.getId())) {
             throw new RuntimeException("Answer does not belong to current question");
         }
 
         boolean isCorrect = selectedAnswer.getIsCorrect();
-        if (isCorrect) {
-            session.setScore(session.getScore() + 10);
 
-            if (session.hasNextQuestion()) {
-                session.moveToNextQuestion();
-                quizSessionRepository.save(session);
-                return null; // Continua o quiz
-            } else {
-                session.moveToNextQuestion(); // ✅ Incrementa para indicar completude
-                session.finishSession();
+        if (isCorrect) {
+            // ✅ Resposta correta
+            session.setScore(session.getScore() + 10);
+            session.moveToNextQuestion();
+
+            // 🆕 NOVO: Verifica se completou todas as perguntas
+            if (session.isFullyCompleted()) {
+                // 🎉 QUIZ COMPLETADO COM SUCESSO!
+                session.completeSession();
                 quizSessionRepository.save(session);
                 saveScoreToDatabase(session);
-                return createSuccessResult(session, "Parabéns! Você completou todo o quiz!");
+
+                System.out.println("🎉 QUIZ COMPLETADO! Score final: " + session.getScore());
+                return createCompletedResult(session);
+            } else {
+                // Continue para próxima pergunta
+                quizSessionRepository.save(session);
+                System.out.println("➡️ Próxima pergunta - Index: " + session.getCurrentQuestionIndex());
+                return null; // Continua o quiz
             }
         } else {
-            session.finishSession();
+            // ❌ Resposta incorreta - interrompe o quiz
+            session.interruptSession();
             quizSessionRepository.save(session);
             saveScoreToDatabase(session);
-            return createFailureResult(session, "Resposta incorreta! Fim do jogo.");
+
+            System.out.println("❌ RESPOSTA INCORRETA! Quiz interrompido. Score final: " + session.getScore());
+            return createInterruptedResult(session, "Resposta incorreta! Fim do jogo.");
         }
     }
 
@@ -221,11 +221,11 @@ public class QuizSessionService {
     public QuizSessionStateDTO getSessionState(Long sessionId) {
         QuizSession session = quizSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
-        
+
         // ✅ Forçar carregamento de todas as relações
         session.getQuestions().size();
         session.getQuestions().forEach(q -> q.getAnswers().size());
-        
+
         User currentUser = getCurrentUser();
         if (!session.getUser().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Unauthorized access to session");
@@ -238,9 +238,15 @@ public class QuizSessionService {
     public List<QuizSessionResultDTO> getUserQuizHistory() {
         try {
             User currentUser = getCurrentUser();
-            List<QuizSession> completedSessions = quizSessionRepository.findCompletedSessionsByUserOrderByScoreDesc(currentUser);
 
-            return completedSessions.stream()
+            // 🔧 ATUALIZADO: Busca sessões finalizadas (completas ou interrompidas)
+            List<QuizSession> finishedSessions = quizSessionRepository.findByUserOrderByCreatedAtDesc(currentUser)
+                    .stream()
+                    .filter(session -> session.getStatus().isFinished())
+                    .sorted((s1, s2) -> s2.getScore().compareTo(s1.getScore())) // Ordena por score DESC
+                    .collect(Collectors.toList());
+
+            return finishedSessions.stream()
                     .map(this::convertToResultDTO)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -256,29 +262,45 @@ public class QuizSessionService {
         score.setUser(session.getUser());
         score.setPoints(session.getScore());
         scoreRepository.save(score);
+
+        System.out.println("💾 Score salvo no banco: " + session.getScore() + " pontos");
     }
 
-    private QuizSessionResultDTO createSuccessResult(QuizSession session, String message) {
+    // 🆕 NOVO: Cria resultado para quiz completado
+    private QuizSessionResultDTO createCompletedResult(QuizSession session) {
+        double completionRate = 100.0; // Quiz completado = 100%
+
         return new QuizSessionResultDTO(
                 session.getId(),
                 session.getScore(),
                 session.getQuestions().size(),
-                true,
+                true, // wasCompleted = true
                 session.getCreatedAt(),
                 session.getFinishedAt(),
-                message
+                "Parabéns! Você completou todo o quiz com " + session.getScore() + " pontos!",
+                session.getStatus().getValue(),        // Status
+                session.getStatus().getDescription(),  // Descrição do status
+                completionRate                         // 100% de completude
         );
     }
 
-    private QuizSessionResultDTO createFailureResult(QuizSession session, String message) {
+    // 🆕 NOVO: Cria resultado para quiz interrompido
+    private QuizSessionResultDTO createInterruptedResult(QuizSession session, String message) {
+        // Calcula percentual de completude baseado no progresso
+        double completionRate = session.getQuestions().isEmpty() ? 0.0 :
+                (double) session.getCurrentQuestionIndex() / session.getQuestions().size() * 100.0;
+
         return new QuizSessionResultDTO(
                 session.getId(),
                 session.getScore(),
                 session.getQuestions().size(),
-                false,
+                false, // wasCompleted = false
                 session.getCreatedAt(),
                 session.getFinishedAt(),
-                message
+                message,
+                session.getStatus().getValue(),        // Status
+                session.getStatus().getDescription(),  // Descrição do status
+                Math.round(completionRate * 100.0) / 100.0 // Taxa de completude
         );
     }
 
@@ -298,26 +320,31 @@ public class QuizSessionService {
                 session.getCurrentQuestionIndex(),
                 session.getQuestions().size(),
                 session.getScore(),
-                session.getIsActive(),
-                session.isCompleted(),
+                session.getStatus() == SessionStatus.IN_PROGRESS, // isActive baseado no status
+                session.getStatus() == SessionStatus.COMPLETED,   // isCompleted baseado no status
                 currentQuestion,
                 session.getCreatedAt(),
-                session.getFinishedAt()
+                session.getFinishedAt(),
+                session.getStatus().getValue(),        // 🆕 Status como string
+                session.getStatus().getDescription()   // 🆕 Descrição do status
         );
     }
 
     private QuizSessionResultDTO convertToResultDTO(QuizSession session) {
-        boolean wasCompleted = session.getCurrentQuestionIndex() >= session.getQuestions().size()
-                && session.getFinishedAt() != null;
+        // 🆕 NOVO: Usa o SessionStatus para determinar se foi completado
+        boolean wasCompleted = session.getStatus() == SessionStatus.COMPLETED;
 
         String message;
-        if (wasCompleted) {
-            message = "Quiz completado com sucesso!";
-        } else if (session.getFinishedAt() != null) {
-            message = "Quiz interrompido por resposta incorreta";
-        } else {
-            message = "Quiz em andamento";
+        switch (session.getStatus()) {
+            case COMPLETED -> message = "Quiz completado com sucesso! Score: " + session.getScore();
+            case INTERRUPTED -> message = "Quiz interrompido. Score final: " + session.getScore();
+            case IN_PROGRESS -> message = "Quiz em andamento...";
+            default -> message = "Status desconhecido";
         }
+
+        // 🆕 NOVO: Calcula taxa de completude
+        double completionRate = session.getQuestions().isEmpty() ? 0.0 :
+                (double) session.getCurrentQuestionIndex() / session.getQuestions().size() * 100.0;
 
         return new QuizSessionResultDTO(
                 session.getId(),
@@ -326,7 +353,10 @@ public class QuizSessionService {
                 wasCompleted,
                 session.getCreatedAt(),
                 session.getFinishedAt(),
-                message
+                message,
+                session.getStatus().getValue(),           // 🆕 Status como string
+                session.getStatus().getDescription(),     // 🆕 Descrição do status
+                Math.round(completionRate * 100.0) / 100.0 // 🆕 Taxa de completude
         );
     }
 }

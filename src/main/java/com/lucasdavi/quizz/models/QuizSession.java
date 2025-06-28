@@ -1,6 +1,6 @@
 package com.lucasdavi.quizz.models;
-import com.lucasdavi.quizz.models.Question;
-import com.lucasdavi.quizz.models.User;
+
+import com.lucasdavi.quizz.enums.SessionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,7 +29,6 @@ public class QuizSession implements Serializable {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // 🔧 CORREÇÃO: Usar LAZY loading e OrderBy para manter ordem consistente
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "quiz_session_questions",
@@ -45,6 +44,12 @@ public class QuizSession implements Serializable {
     @Column(name = "score")
     private Integer score = 0;
 
+    // Campo para controlar status da sessão
+    @Column(name = "status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private SessionStatus status = SessionStatus.IN_PROGRESS;
+
+    // 🔧 MANTIDO: Para compatibilidade, mas agora deriva do status
     @Column(name = "is_active")
     private Boolean isActive = true;
 
@@ -80,12 +85,68 @@ public class QuizSession implements Serializable {
         }
     }
 
-    public void finishSession() {
+    // Métodos para controlar status
+    public void completeSession() {
+        this.status = SessionStatus.COMPLETED;
         this.isActive = false;
         this.finishedAt = LocalDateTime.now();
+        System.out.println("✅ Sessão COMPLETADA - ID: " + this.id + ", Score: " + this.score);
     }
 
+    public void interruptSession() {
+        this.status = SessionStatus.INTERRUPTED;
+        this.isActive = false;
+        this.finishedAt = LocalDateTime.now();
+        System.out.println("❌ Sessão INTERROMPIDA - ID: " + this.id + ", Score: " + this.score);
+    }
+
+    // Método genérico que usa o status apropriado
+    public void finishSession() {
+        // Determina se foi completada ou interrompida baseado no progresso
+        if (isFullyCompleted()) {
+            completeSession();
+        } else {
+            interruptSession();
+        }
+    }
+
+    // Verifica se o quiz foi totalmente completado
+    public boolean isFullyCompleted() {
+        return currentQuestionIndex >= questions.size();
+    }
+
+    // Usa o status para determinar se está completo
     public boolean isCompleted() {
-        return currentQuestionIndex >= questions.size() || !isActive;
+        return status == SessionStatus.COMPLETED;
+    }
+
+    // Verifica se foi interrompido
+    public boolean isInterrupted() {
+        return status == SessionStatus.INTERRUPTED;
+    }
+
+    // Verifica se está em progresso
+    public boolean isInProgress() {
+        return status == SessionStatus.IN_PROGRESS;
+    }
+
+    // Verifica se a sessão terminou (completa ou interrompida)
+    public boolean isFinished() {
+        return status.isFinished();
+    }
+
+    // 🔧 COMPATIBILIDADE: Mantém método antigo para não quebrar código existente
+    @Deprecated
+    public void finishSession(String reason) {
+        if ("completed".equalsIgnoreCase(reason)) {
+            completeSession();
+        } else {
+            interruptSession();
+        }
+    }
+
+    // 🆕 UTILITÁRIO: Para logging e debug
+    public String getStatusDescription() {
+        return status.getDescription();
     }
 }

@@ -1,5 +1,6 @@
 package com.lucasdavi.quizz.services;
 
+import com.lucasdavi.quizz.enums.SessionStatus;
 import com.lucasdavi.quizz.models.QuizSession;
 import com.lucasdavi.quizz.repositories.QuizSessionRepository;
 import com.lucasdavi.quizz.repositories.ScoreRepository;
@@ -22,25 +23,27 @@ public class ScheduledCleanupService {
     @Autowired
     private ScoreRepository scoreRepository;
 
-
-    @Scheduled(cron = "0 30 1 * * *") // Todo dia às 01:30 (antes da limpeza geral)
+    /**
+     * 🔧 ATUALIZADO: Limpeza diária de sessões interrompidas com score zero
+     */
+    @Scheduled(cron = "0 30 1 * * *") // Todo dia às 01:30
     @Transactional
     public void dailyCleanupZeroScoreSessions() {
         System.out.println("🕒 [SCHEDULER] Iniciando limpeza de sessões com score zero...");
 
         LocalDateTime cutoffTime = LocalDateTime.now().minusHours(24);
 
-        // Busca sessões finalizadas (não ativas) com score 0 criadas há mais de 24h
+        // 🔧 CORRIGIDO: Busca sessões interrompidas com score 0 criadas há mais de 24h
         List<QuizSession> zeroScoreSessions = quizSessionRepository
-                .findByScoreAndIsActiveFalseAndCreatedAtBefore(0, cutoffTime);
+                .findByScoreAndStatusAndCreatedAtBefore(0, SessionStatus.INTERRUPTED, cutoffTime);
 
         if (zeroScoreSessions.isEmpty()) {
-            System.out.println("🗑️ [SCHEDULER] Nenhuma sessão com score zero encontrada para limpeza");
+            System.out.println("🗑️ [SCHEDULER] Nenhuma sessão interrompida com score zero encontrada para limpeza");
             return;
         }
 
         System.out.println("🗑️ [SCHEDULER] Removendo " + zeroScoreSessions.size() +
-                " sessão(ões) com score zero (24h+)");
+                " sessão(ões) interrompida(s) com score zero (24h+)");
 
         // Remove as sessões com score zero
         quizSessionRepository.deleteAll(zeroScoreSessions);
@@ -52,31 +55,10 @@ public class ScheduledCleanupService {
     }
 
 
-    @Scheduled(cron = "0 45 1 * * SUN") // Todo domingo às 01:45
-    @Transactional
-    public void weeklyAggressiveZeroScoreCleanup() {
-        System.out.println("🕒 [SCHEDULER] Iniciando limpeza agressiva semanal de score zero...");
 
-        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(1);
-
-        // Remove TODAS as sessões com score 0 (ativas ou não) mais antigas que 1h
-        List<QuizSession> allZeroScoreSessions = quizSessionRepository
-                .findByScoreAndCreatedAtBefore(0, cutoffTime);
-
-        if (allZeroScoreSessions.isEmpty()) {
-            System.out.println("🗑️ [SCHEDULER] Nenhuma sessão com score zero encontrada para limpeza agressiva");
-            return;
-        }
-
-        System.out.println("🗑️ [SCHEDULER] Limpeza agressiva: removendo " + allZeroScoreSessions.size() +
-                " sessão(ões) com score zero");
-
-        quizSessionRepository.deleteAll(allZeroScoreSessions);
-        cleanupZeroScoresFromDatabase();
-
-        System.out.println("✅ [SCHEDULER] Limpeza agressiva de score zero concluída");
-    }
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza diária de sessões abandonadas
+     */
     @Scheduled(cron = "0 0 2 * * *") // Todo dia às 02:00
     @Transactional
     public void dailyCleanupAbandonedSessions() {
@@ -84,9 +66,9 @@ public class ScheduledCleanupService {
 
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(7);
 
-        // Busca todas as sessões ativas criadas há mais de 7 dias
+        // 🔧 CORRIGIDO: Busca todas as sessões EM PROGRESSO criadas há mais de 7 dias
         List<QuizSession> abandonedSessions = quizSessionRepository
-                .findByIsActiveTrueAndCreatedAtBefore(cutoffDate);
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, cutoffDate);
 
         if (abandonedSessions.isEmpty()) {
             System.out.println("🧹 [SCHEDULER] Nenhuma sessão abandonada encontrada para limpeza");
@@ -102,7 +84,9 @@ public class ScheduledCleanupService {
         System.out.println("✅ [SCHEDULER] Limpeza automática concluída com sucesso");
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza semanal de sessões muito antigas
+     */
     @Scheduled(cron = "0 0 3 * * SUN") // Todo domingo às 03:00
     @Transactional
     public void weeklyCleanupOldSessions() {
@@ -110,9 +94,9 @@ public class ScheduledCleanupService {
 
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
 
-        // Busca sessões abandonadas há mais de 30 dias
+        // 🔧 CORRIGIDO: Busca sessões EM PROGRESSO há mais de 30 dias
         List<QuizSession> oldSessions = quizSessionRepository
-                .findByIsActiveTrueAndCreatedAtBefore(cutoffDate);
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, cutoffDate);
 
         if (oldSessions.isEmpty()) {
             System.out.println("🧹 [SCHEDULER] Nenhuma sessão antiga encontrada para limpeza semanal");
@@ -127,30 +111,34 @@ public class ScheduledCleanupService {
         System.out.println("✅ [SCHEDULER] Limpeza semanal concluída com sucesso");
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Relatório de status de sessões a cada hora
+     */
     @Scheduled(cron = "0 0 * * * *") // A cada hora
     public void hourlyStatusReport() {
-        long activeSessionsCount = quizSessionRepository.countByIsActiveTrue();
+        long inProgressSessionsCount = quizSessionRepository.countByStatus(SessionStatus.IN_PROGRESS);
 
-        if (activeSessionsCount > 100) { // Limite de alerta
-            System.out.println("⚠️ [ALERT] Muitas sessões ativas detectadas: " + activeSessionsCount);
-        } else if (activeSessionsCount > 50) {
-            System.out.println("📊 [INFO] Sessões ativas no sistema: " + activeSessionsCount);
+        if (inProgressSessionsCount > 100) { // Limite de alerta
+            System.out.println("⚠️ [ALERT] Muitas sessões em progresso detectadas: " + inProgressSessionsCount);
+        } else if (inProgressSessionsCount > 50) {
+            System.out.println("📊 [INFO] Sessões em progresso no sistema: " + inProgressSessionsCount);
         }
         // Se for menor que 50, não loga para evitar spam
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza manual de sessões antigas por horas
+     */
     @Transactional
     public int cleanupSessionsOlderThanHours(int hours) {
         LocalDateTime cutoffTime = LocalDateTime.now().minusHours(hours);
 
         List<QuizSession> abandonedSessions = quizSessionRepository
-                .findByIsActiveTrueAndCreatedAtBefore(cutoffTime);
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, cutoffTime);
 
         if (!abandonedSessions.isEmpty()) {
             System.out.println("🧹 Limpeza manual: removendo " + abandonedSessions.size() +
-                    " sessão(ões) abandonada(s) há mais de " + hours + " hora(s)");
+                    " sessão(ões) em progresso há mais de " + hours + " hora(s)");
 
             quizSessionRepository.deleteAll(abandonedSessions);
         }
@@ -158,16 +146,19 @@ public class ScheduledCleanupService {
         return abandonedSessions.size();
     }
 
+    /**
+     * 🔧 ATUALIZADO: Limpeza de sessões interrompidas com score zero por horas
+     */
     @Transactional
     public int cleanupZeroScoreSessionsOlderThanHours(int hours) {
         LocalDateTime cutoffTime = LocalDateTime.now().minusHours(hours);
 
         List<QuizSession> zeroScoreSessions = quizSessionRepository
-                .findByScoreAndIsActiveFalseAndCreatedAtBefore(0, cutoffTime);
+                .findByScoreAndStatusAndCreatedAtBefore(0, SessionStatus.INTERRUPTED, cutoffTime);
 
         if (!zeroScoreSessions.isEmpty()) {
             System.out.println("🗑️ Limpeza manual score zero: removendo " + zeroScoreSessions.size() +
-                    " sessão(ões) com score 0 há mais de " + hours + " hora(s)");
+                    " sessão(ões) interrompida(s) com score 0 há mais de " + hours + " hora(s)");
 
             quizSessionRepository.deleteAll(zeroScoreSessions);
             cleanupZeroScoresFromDatabase();
@@ -176,14 +167,16 @@ public class ScheduledCleanupService {
         return zeroScoreSessions.size();
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza de todas as sessões com score zero
+     */
     @Transactional
     public int cleanupAllZeroScoreSessions() {
-        List<QuizSession> allZeroScoreSessions = quizSessionRepository.findByScore(0);
+        List<QuizSession> allZeroScoreSessions = quizSessionRepository.findByScoreAndStatus(0, SessionStatus.INTERRUPTED);
 
         if (!allZeroScoreSessions.isEmpty()) {
             System.out.println("🗑️ Limpeza agressiva manual: removendo TODAS as " + allZeroScoreSessions.size() +
-                    " sessão(ões) com score zero");
+                    " sessão(ões) interrompida(s) com score zero");
 
             quizSessionRepository.deleteAll(allZeroScoreSessions);
             cleanupZeroScoresFromDatabase();
@@ -192,48 +185,52 @@ public class ScheduledCleanupService {
         return allZeroScoreSessions.size();
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza de sessões em progresso com score zero
+     */
     @Transactional
     public int cleanupActiveZeroScoreSessions() {
-        List<QuizSession> activeZeroSessions = quizSessionRepository
-                .findByScoreAndIsActiveTrue(0);
+        List<QuizSession> inProgressZeroSessions = quizSessionRepository
+                .findByScoreAndStatus(0, SessionStatus.IN_PROGRESS);
 
-        if (!activeZeroSessions.isEmpty()) {
-            System.out.println("🗑️ Limpeza de abandonos: removendo " + activeZeroSessions.size() +
-                    " sessão(ões) ativa(s) com score zero");
+        if (!inProgressZeroSessions.isEmpty()) {
+            System.out.println("🗑️ Limpeza de abandonos: removendo " + inProgressZeroSessions.size() +
+                    " sessão(ões) em progresso com score zero");
 
-            quizSessionRepository.deleteAll(activeZeroSessions);
+            quizSessionRepository.deleteAll(inProgressZeroSessions);
         }
 
-        return activeZeroSessions.size();
+        return inProgressZeroSessions.size();
     }
 
-
+    /**
+     * 🔧 ATUALIZADO: Limpeza inteligente de score zero
+     */
     @Transactional
     public int intelligentZeroScoreCleanup() {
         LocalDateTime abandonedCutoff = LocalDateTime.now().minusHours(2);
         LocalDateTime finishedCutoff = LocalDateTime.now().minusHours(24);
 
-        // Sessões ativas abandonadas há mais de 2h com score 0
+        // Sessões em progresso abandonadas há mais de 2h com score 0
         List<QuizSession> abandonedZeroSessions = quizSessionRepository
-                .findByScoreAndIsActiveTrueAndCreatedAtBefore(0, abandonedCutoff);
+                .findByScoreAndStatusAndCreatedAtBefore(0, SessionStatus.IN_PROGRESS, abandonedCutoff);
 
-        // Sessões finalizadas há mais de 24h com score 0
+        // Sessões interrompidas há mais de 24h com score 0
         List<QuizSession> finishedZeroSessions = quizSessionRepository
-                .findByScoreAndIsActiveFalseAndCreatedAtBefore(0, finishedCutoff);
+                .findByScoreAndStatusAndCreatedAtBefore(0, SessionStatus.INTERRUPTED, finishedCutoff);
 
         int totalDeleted = 0;
 
         if (!abandonedZeroSessions.isEmpty()) {
             System.out.println("🗑️ Limpeza inteligente: removendo " + abandonedZeroSessions.size() +
-                    " sessão(ões) abandonada(s) com score zero (2h+)");
+                    " sessão(ões) em progresso abandonada(s) com score zero (2h+)");
             quizSessionRepository.deleteAll(abandonedZeroSessions);
             totalDeleted += abandonedZeroSessions.size();
         }
 
         if (!finishedZeroSessions.isEmpty()) {
             System.out.println("🗑️ Limpeza inteligente: removendo " + finishedZeroSessions.size() +
-                    " sessão(ões) finalizada(s) com score zero (24h+)");
+                    " sessão(ões) interrompida(s) com score zero (24h+)");
             quizSessionRepository.deleteAll(finishedZeroSessions);
             totalDeleted += finishedZeroSessions.size();
         }
@@ -246,6 +243,9 @@ public class ScheduledCleanupService {
         return totalDeleted;
     }
 
+    /**
+     * Remove scores zero órfãos do banco de dados
+     */
     private void cleanupZeroScoresFromDatabase() {
         try {
             int deletedScores = scoreRepository.deleteByPoints(0);
@@ -257,18 +257,99 @@ public class ScheduledCleanupService {
         }
     }
 
+    /**
+     * 🔧 ATUALIZADO: Relatório de sessões com score zero
+     */
     public Map<String, Long> getZeroScoreSessionsReport() {
-        long activeZeroScore = quizSessionRepository.countByScoreAndIsActiveTrue(0);
-        long finishedZeroScore = quizSessionRepository.countByScoreAndIsActiveFalse(0);
-        long totalZeroScore = quizSessionRepository.countByScore(0);
+        long inProgressZeroScore = quizSessionRepository.countByScoreAndStatus(0, SessionStatus.IN_PROGRESS);
+        long interruptedZeroScore = quizSessionRepository.countByScoreAndStatus(0, SessionStatus.INTERRUPTED);
+        long completedZeroScore = quizSessionRepository.countByScoreAndStatus(0, SessionStatus.COMPLETED);
+        long totalZeroScore = inProgressZeroScore + interruptedZeroScore + completedZeroScore;
         long zeroScoreRecords = scoreRepository.countByPoints(0);
 
         Map<String, Long> report = new HashMap<>();
-        report.put("activeZeroScoreSessions", activeZeroScore);
-        report.put("finishedZeroScoreSessions", finishedZeroScore);
+        report.put("inProgressZeroScoreSessions", inProgressZeroScore);
+        report.put("interruptedZeroScoreSessions", interruptedZeroScore);
+        report.put("completedZeroScoreSessions", completedZeroScore);
         report.put("totalZeroScoreSessions", totalZeroScore);
         report.put("zeroScoreRecords", zeroScoreRecords);
 
         return report;
+    }
+
+    /**
+     * 🆕 NOVO: Relatório geral de estatísticas de sessões por status
+     */
+    public Map<String, Object> getSessionStatusReport() {
+        long inProgressSessions = quizSessionRepository.countByStatus(SessionStatus.IN_PROGRESS);
+        long completedSessions = quizSessionRepository.countByStatus(SessionStatus.COMPLETED);
+        long interruptedSessions = quizSessionRepository.countByStatus(SessionStatus.INTERRUPTED);
+        long totalSessions = inProgressSessions + completedSessions + interruptedSessions;
+
+        // Calcula percentuais
+        double completionRate = totalSessions > 0 ? (double) completedSessions / totalSessions * 100.0 : 0.0;
+        double interruptionRate = totalSessions > 0 ? (double) interruptedSessions / totalSessions * 100.0 : 0.0;
+        double inProgressRate = totalSessions > 0 ? (double) inProgressSessions / totalSessions * 100.0 : 0.0;
+
+        // Sessões abandonadas (em progresso há mais de 24h)
+        LocalDateTime dayAgo = LocalDateTime.now().minusDays(1);
+        List<QuizSession> abandonedSessions = quizSessionRepository
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, dayAgo);
+
+        Map<String, Object> report = new HashMap<>();
+        report.put("totalSessions", totalSessions);
+        report.put("inProgressSessions", inProgressSessions);
+        report.put("completedSessions", completedSessions);
+        report.put("interruptedSessions", interruptedSessions);
+        report.put("completionRate", Math.round(completionRate * 100.0) / 100.0);
+        report.put("interruptionRate", Math.round(interruptionRate * 100.0) / 100.0);
+        report.put("inProgressRate", Math.round(inProgressRate * 100.0) / 100.0);
+        report.put("abandonedSessions", abandonedSessions.size());
+        report.put("reportGeneratedAt", LocalDateTime.now());
+
+        return report;
+    }
+
+    /**
+     * 🆕 NOVO: Limpeza específica para sessões abandonadas há X dias
+     */
+    @Transactional
+    public int cleanupAbandonedSessionsOlderThanDays(int days) {
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
+
+        List<QuizSession> abandonedSessions = quizSessionRepository
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, cutoffDate);
+
+        if (!abandonedSessions.isEmpty()) {
+            System.out.println("🧹 Limpeza manual: removendo " + abandonedSessions.size() +
+                    " sessão(ões) abandonada(s) há mais de " + days + " dia(s)");
+
+            quizSessionRepository.deleteAll(abandonedSessions);
+        }
+
+        return abandonedSessions.size();
+    }
+
+    /**
+     * 🆕 NOVO: Força interrupção de sessões em progresso antigas
+     */
+    @Transactional
+    public int forceInterruptOldInProgressSessions(int hours) {
+        LocalDateTime cutoffTime = LocalDateTime.now().minusHours(hours);
+
+        List<QuizSession> oldInProgressSessions = quizSessionRepository
+                .findByStatusAndCreatedAtBefore(SessionStatus.IN_PROGRESS, cutoffTime);
+
+        if (!oldInProgressSessions.isEmpty()) {
+            System.out.println("⏹️ Forçando interrupção de " + oldInProgressSessions.size() +
+                    " sessão(ões) em progresso há mais de " + hours + " hora(s)");
+
+            oldInProgressSessions.forEach(session -> {
+                session.interruptSession();
+            });
+            quizSessionRepository.saveAll(oldInProgressSessions);
+        }
+
+        return oldInProgressSessions.size();
     }
 }
