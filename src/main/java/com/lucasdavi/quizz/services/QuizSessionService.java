@@ -208,12 +208,11 @@ public class QuizSessionService {
             }
         } else {
             // ❌ Resposta incorreta - interrompe o quiz
-            session.interruptSession();
+            session.completeSession();
             quizSessionRepository.save(session);
             saveScoreToDatabase(session);
 
-            System.out.println("❌ RESPOSTA INCORRETA! Quiz interrompido. Score final: " + session.getScore());
-            return createInterruptedResult(session, "Resposta incorreta! Fim do jogo.");
+            return createInterruptedResult(session, "Resposta incorreta! Quiz finalizado.");
         }
     }
 

@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum SessionStatus {
-    IN_PROGRESS(" IN_PROGRESS(", "Em andamento"),
+    IN_PROGRESS(" IN_PROGRESS", "Em andamento"),
     COMPLETED("COMPLETED", "Concluído"),
     INTERRUPTED("INTERRUPTED", "Interrompido");
 

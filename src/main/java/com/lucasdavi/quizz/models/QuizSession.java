@@ -74,15 +74,9 @@ public class QuizSession implements Serializable {
         return null;
     }
 
-    public boolean hasNextQuestion() {
-        return currentQuestionIndex < questions.size() - 1;
-    }
-
     public void moveToNextQuestion() {
-        if (hasNextQuestion()) {
-            currentQuestionIndex++;
-            System.out.println("🔍 moveToNextQuestion() - New Index: " + currentQuestionIndex);
-        }
+        currentQuestionIndex++;
+        System.out.println("🔍 moveToNextQuestion() - New Index: " + currentQuestionIndex);
     }
 
     // Métodos para controlar status
