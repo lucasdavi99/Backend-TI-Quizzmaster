@@ -36,6 +36,11 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.POST, "/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/reset-password").permitAll()
 
+                        // LIBERAR ACTUATOR PARA HEALTHCHECK
+                        .requestMatchers(HttpMethod.GET, "/actuator/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/info").permitAll()
+
                         // Rankings e estatísticas PÚBLICAS
                         .requestMatchers(HttpMethod.GET, "/api/scores/ranking").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/scores/ranking/**").permitAll()
