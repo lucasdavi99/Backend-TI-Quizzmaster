@@ -2,6 +2,7 @@ package com.lucasdavi.quizz.services;
 
 import com.lucasdavi.quizz.dtos.*;
 import com.lucasdavi.quizz.enums.SessionStatus;
+import com.lucasdavi.quizz.enums.Difficulty; // Novo import
 import com.lucasdavi.quizz.exceptions.EntityNotFoundException;
 import com.lucasdavi.quizz.models.*;
 import com.lucasdavi.quizz.repositories.*;
@@ -62,9 +63,64 @@ public class QuizSessionService {
             throw new RuntimeException("Not enough questions available");
         }
 
-        Collections.shuffle(allQuestions);
-        List<Question> selectedQuestions = allQuestions.subList(0, dto.numberOfQuestions());
-        selectedQuestions.sort((q1, q2) -> q1.getId().compareTo(q2.getId()));
+        // --- SISTEMA DE DIFICULDADE PROGRESSIVA ---
+        List<Question> easyQuestions = allQuestions.stream()
+                .filter(q -> q.getDifficulty() == Difficulty.EASY)
+                .collect(Collectors.toList());
+        List<Question> mediumQuestions = allQuestions.stream()
+                .filter(q -> q.getDifficulty() == Difficulty.MEDIUM)
+                .collect(Collectors.toList());
+        List<Question> hardQuestions = allQuestions.stream()
+                .filter(q -> q.getDifficulty() == Difficulty.HARD)
+                .collect(Collectors.toList());
+        // Se alguma categoria estiver vazia (para retrocompatibilidade), trate como EASY
+        List<Question> defaultQuestions = allQuestions.stream()
+                .filter(q -> q.getDifficulty() == null)
+                .collect(Collectors.toList());
+        easyQuestions.addAll(defaultQuestions);
+
+        Collections.shuffle(easyQuestions);
+        Collections.shuffle(mediumQuestions);
+        Collections.shuffle(hardQuestions);
+
+        int totalToSelect = dto.numberOfQuestions();
+        int easyCount = (int) Math.ceil(totalToSelect * 0.3);   // 30% Fáceis
+        int mediumCount = (int) Math.ceil(totalToSelect * 0.4); // 40% Médias
+        int hardCount = totalToSelect - easyCount - mediumCount; // 30% Difíceis (Restante)
+
+        List<Question> selectedQuestions = new ArrayList<>();
+
+        // Helper para adicionar perguntas garantindo disponibilidade
+        addQuestions(selectedQuestions, easyQuestions, easyCount);
+        addQuestions(selectedQuestions, mediumQuestions, mediumCount);
+        addQuestions(selectedQuestions, hardQuestions, hardCount);
+
+        // Se faltou pergunta (ex: poucas hard), preenche com o que sobrou das outras pools
+        // Prioridade: Medium -> Easy
+        while (selectedQuestions.size() < totalToSelect) {
+            if (!mediumQuestions.isEmpty()) {
+                selectedQuestions.add(mediumQuestions.remove(0));
+            } else if (!easyQuestions.isEmpty()) {
+                selectedQuestions.add(easyQuestions.remove(0));
+            } else if (!hardQuestions.isEmpty()) {
+                 selectedQuestions.add(hardQuestions.remove(0));
+            } else {
+                break; // Não tem mais nenhuma pergunta disponível
+            }
+        }
+        
+        // Garante que não passamos do limite
+        if (selectedQuestions.size() > totalToSelect) {
+             selectedQuestions = selectedQuestions.subList(0, totalToSelect);
+        }
+        
+        
+        // ORDENAÇÃO POR DIFICULDADE PRA JOGABILIDADE
+        // Easy -> Medium -> Hard
+        sortQuestionsByDifficulty(selectedQuestions);
+
+        // 🆕 NOVO: Cria sessão com status IN_PROGRESS
+
 
         // 🆕 NOVO: Cria sessão com status IN_PROGRESS
         QuizSession session = new QuizSession();
@@ -151,6 +207,9 @@ public class QuizSessionService {
         session.getQuestions().size(); // Carregar questions
         session.getQuestions().forEach(q -> q.getAnswers().size()); // Carregar answers de cada question
 
+        // 🔥 CRÍTICO: Garantir ordenação por dificuldade para alinhar com frontend
+        sortQuestionsByDifficulty(session.getQuestions());
+
         // Verificar se a sessão pertence ao usuário atual
         User currentUser = getCurrentUser();
         if (!session.getUser().getId().equals(currentUser.getId())) {
@@ -224,6 +283,9 @@ public class QuizSessionService {
         // ✅ Forçar carregamento de todas as relações
         session.getQuestions().size();
         session.getQuestions().forEach(q -> q.getAnswers().size());
+
+        // 🔥 CRÍTICO: Garantir ordenação por dificuldade
+        sortQuestionsByDifficulty(session.getQuestions());
 
         User currentUser = getCurrentUser();
         if (!session.getUser().getId().equals(currentUser.getId())) {
@@ -357,5 +419,31 @@ public class QuizSessionService {
                 session.getStatus().getDescription(),     // 🆕 Descrição do status
                 Math.round(completionRate * 100.0) / 100.0 // 🆕 Taxa de completude
         );
+    }
+    private void addQuestions(List<Question> target, List<Question> source, int count) {
+        for (int i = 0; i < count && !source.isEmpty(); i++) {
+            target.add(source.remove(0)); // Remove da source para não repetir se precisarmos preencher dps
+        }
+    }
+
+    private void sortQuestionsByDifficulty(List<Question> questions) {
+        questions.sort((q1, q2) -> {
+            int d1 = getDifficultyWeight(q1.getDifficulty());
+            int d2 = getDifficultyWeight(q2.getDifficulty());
+            // Se dificuldade igual, desempata por ID para consistência absoluta
+            if (d1 == d2) {
+                return q1.getId().compareTo(q2.getId());
+            }
+            return Integer.compare(d1, d2);
+        });
+    }
+
+    private int getDifficultyWeight(Difficulty difficulty) {
+        if (difficulty == null) return 0; // Trata null como mais fácil que easy
+        return switch (difficulty) {
+            case EASY -> 1;
+            case MEDIUM -> 2;
+            case HARD -> 3;
+        };
     }
 }

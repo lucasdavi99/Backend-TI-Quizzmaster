@@ -35,7 +35,6 @@ public class QuizSession implements Serializable {
             joinColumns = @JoinColumn(name = "quiz_session_id"),
             inverseJoinColumns = @JoinColumn(name = "question_id")
     )
-    @OrderBy("id ASC") // 🚀 FORÇA ORDEM CONSISTENTE
     private List<Question> questions = new ArrayList<>();
 
     @Column(name = "current_question_index")

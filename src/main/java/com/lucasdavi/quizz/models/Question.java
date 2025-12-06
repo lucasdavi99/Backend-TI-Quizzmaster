@@ -25,6 +25,11 @@ public class Question implements Serializable {
     private Long id;
     @Column
     private String content;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(20) DEFAULT 'EASY'")
+    private com.lucasdavi.quizz.enums.Difficulty difficulty;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<Answer> answers = new ArrayList<>();
