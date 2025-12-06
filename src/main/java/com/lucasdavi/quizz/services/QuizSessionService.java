@@ -83,36 +83,11 @@ public class QuizSessionService {
         Collections.shuffle(mediumQuestions);
         Collections.shuffle(hardQuestions);
 
-        int totalToSelect = dto.numberOfQuestions();
-        int easyCount = (int) Math.ceil(totalToSelect * 0.3);   // 30% Fáceis
-        int mediumCount = (int) Math.ceil(totalToSelect * 0.4); // 40% Médias
-        int hardCount = totalToSelect - easyCount - mediumCount; // 30% Difíceis (Restante)
-
         List<Question> selectedQuestions = new ArrayList<>();
-
-        // Helper para adicionar perguntas garantindo disponibilidade
-        addQuestions(selectedQuestions, easyQuestions, easyCount);
-        addQuestions(selectedQuestions, mediumQuestions, mediumCount);
-        addQuestions(selectedQuestions, hardQuestions, hardCount);
-
-        // Se faltou pergunta (ex: poucas hard), preenche com o que sobrou das outras pools
-        // Prioridade: Medium -> Easy
-        while (selectedQuestions.size() < totalToSelect) {
-            if (!mediumQuestions.isEmpty()) {
-                selectedQuestions.add(mediumQuestions.remove(0));
-            } else if (!easyQuestions.isEmpty()) {
-                selectedQuestions.add(easyQuestions.remove(0));
-            } else if (!hardQuestions.isEmpty()) {
-                 selectedQuestions.add(hardQuestions.remove(0));
-            } else {
-                break; // Não tem mais nenhuma pergunta disponível
-            }
-        }
-        
-        // Garante que não passamos do limite
-        if (selectedQuestions.size() > totalToSelect) {
-             selectedQuestions = selectedQuestions.subList(0, totalToSelect);
-        }
+        // 🚀 MODO TODAS AS PERGUNTAS: Adiciona tudo em ordem progressiva
+        selectedQuestions.addAll(easyQuestions);
+        selectedQuestions.addAll(mediumQuestions);
+        selectedQuestions.addAll(hardQuestions);
         
         
         // ORDENAÇÃO POR DIFICULDADE PRA JOGABILIDADE

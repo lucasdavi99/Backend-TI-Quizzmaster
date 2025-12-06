@@ -26,4 +26,11 @@ public class Score implements Serializable {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = java.time.LocalDateTime.now();
+    }
 }
