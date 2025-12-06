@@ -291,7 +291,8 @@ public class AdminController {
             return ResponseEntity.ok(Map.of(
                     "message", "Limpeza forçada executada com sucesso",
                     "results", result,
-                    "success", true
+                    "success", true,
+                    "timestamp", java.time.LocalDateTime.now().toString()
             ));
         } catch (RuntimeException e) {
             if (e.getMessage().contains("not authenticated") || e.getMessage().contains("not authorized")) {

@@ -2,6 +2,7 @@ package com.lucasdavi.quizz.services;
 
 import com.lucasdavi.quizz.dtos.AnswerDTO;
 import com.lucasdavi.quizz.dtos.QuestionDTO;
+import com.lucasdavi.quizz.enums.Difficulty;
 import com.lucasdavi.quizz.models.Question;
 import com.lucasdavi.quizz.repositories.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ public class QuestionService {
         Question question = new Question();
 
         question.setContent(data.content());
+        question.setDifficulty(data.difficulty() != null ? data.difficulty() : Difficulty.EASY);
         question.setAnswers(data.answers().stream()
                 .map(answerDTO -> answerDTO.toAnswer(question))
                 .toList());
@@ -42,6 +44,7 @@ public class QuestionService {
         return Optional.of(new QuestionDTO(
                 question.getId(),
                 question.getContent(),
+                question.getDifficulty(),
                 question.getAnswers().stream()
                         .map(answer -> new AnswerDTO(
                                 answer.getId(),
@@ -70,6 +73,7 @@ public class QuestionService {
                     return new QuestionDTO(
                             question.getId(),
                             question.getContent(),
+                            question.getDifficulty(),
                             answerDTOs
                     );
                 })
@@ -87,6 +91,9 @@ public class QuestionService {
 
         // Atualiza o conteúdo
         question.setContent(questionDTO.content());
+        if (questionDTO.difficulty() != null) {
+            question.setDifficulty(questionDTO.difficulty());
+        }
 
         // Remove answers antigas e adiciona novas
         question.getAnswers().clear();
@@ -100,6 +107,7 @@ public class QuestionService {
         return new QuestionDTO(
                 updatedQuestion.getId(),
                 updatedQuestion.getContent(),
+                updatedQuestion.getDifficulty(),
                 updatedQuestion.getAnswers().stream()
                         .map(answer -> new AnswerDTO(
                                 answer.getId(),

@@ -92,7 +92,8 @@ public class QuizSessionController {
 
             Map<String, Object> response = Map.of(
                     "message", "Sessões abandonadas removidas com sucesso",
-                    "deletedSessions", deletedCount
+                    "deletedSessions", deletedCount,
+                    "timestamp", java.time.LocalDateTime.now().toString()
             );
 
             return ResponseEntity.ok(response);
@@ -120,7 +121,8 @@ public class QuizSessionController {
                     "message", String.format("Sessões com score zero há mais de %d hora(s) removidas", hours),
                     "deletedSessions", deletedCount,
                     "hoursFilter", hours,
-                    "type", "zero_score_cleanup"
+                    "type", "zero_score_cleanup",
+                    "timestamp", java.time.LocalDateTime.now().toString()
             );
 
             return ResponseEntity.ok(response);
@@ -141,7 +143,8 @@ public class QuizSessionController {
                     "message", "Todas as sessões com score zero foram removidas",
                     "deletedSessions", deletedCount,
                     "type", "aggressive_zero_score_cleanup",
-                    "warning", "Esta operação remove TODAS as sessões com score 0"
+                    "warning", "Esta operação remove TODAS as sessões com score 0",
+                    "timestamp", java.time.LocalDateTime.now().toString()
             );
 
             return ResponseEntity.ok(response);
@@ -162,7 +165,8 @@ public class QuizSessionController {
                     "message", "Sessões ativas com score zero removidas",
                     "deletedSessions", deletedCount,
                     "type", "active_zero_score_cleanup",
-                    "description", "Remove apenas sessões ativas abandonadas sem afetar histórico"
+                    "description", "Remove apenas sessões ativas abandonadas sem afetar histórico",
+                    "timestamp", java.time.LocalDateTime.now().toString()
             );
 
             return ResponseEntity.ok(response);
@@ -183,6 +187,7 @@ public class QuizSessionController {
                     "message", "Limpeza inteligente de score zero executada",
                     "deletedSessions", deletedCount,
                     "type", "intelligent_zero_score_cleanup",
+                    "timestamp", java.time.LocalDateTime.now().toString(),
                     "criteria", Map.of(
                             "abandonedSessions", "Ativas há mais de 2 horas com score 0",
                             "finishedSessions", "Finalizadas há mais de 24 horas com score 0"
@@ -223,49 +228,50 @@ public class QuizSessionController {
         }
     }
 
-@DeleteMapping("/cleanup/old")
-public ResponseEntity<Map<String, Object>> cleanupOldAbandonedSessions(@RequestParam(value = "days", defaultValue = "7") int days) {
-    try {
-        if (days < 1) {
+    @DeleteMapping("/cleanup/old")
+    public ResponseEntity<Map<String, Object>> cleanupOldAbandonedSessions(@RequestParam(value = "days", defaultValue = "7") int days) {
+        try {
+            if (days < 1) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "O número de dias deve ser maior que 0"
+                ));
+            }
+
+            int deletedCount = quizSessionService.cleanupOldAbandonedSessions(days);
+
+            Map<String, Object> response = Map.of(
+                    "message", String.format("Sessões abandonadas há mais de %d dia(s) removidas", days),
+                    "deletedSessions", deletedCount,
+                    "daysFilter", days,
+                    "timestamp", java.time.LocalDateTime.now().toString()
+            );
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "O número de dias deve ser maior que 0"
+                    "error", "Erro ao limpar sessões antigas",
+                    "details", e.getMessage()
             ));
         }
-
-        int deletedCount = quizSessionService.cleanupOldAbandonedSessions(days);
-
-        Map<String, Object> response = Map.of(
-                "message", String.format("Sessões abandonadas há mais de %d dia(s) removidas", days),
-                "deletedSessions", deletedCount,
-                "daysFilter", days
-        );
-
-        return ResponseEntity.ok(response);
-    } catch (RuntimeException e) {
-        return ResponseEntity.badRequest().body(Map.of(
-                "error", "Erro ao limpar sessões antigas",
-                "details", e.getMessage()
-        ));
     }
-}
 
+    @PutMapping("/finish-all")
+    public ResponseEntity<Map<String, Object>> finishAllActiveSessions() {
+        try {
+            int finishedCount = quizSessionService.finishAllActiveSessions();
 
-@PutMapping("/finish-all")
-public ResponseEntity<Map<String, Object>> finishAllActiveSessions() {
-    try {
-        int finishedCount = quizSessionService.finishAllActiveSessions();
+            Map<String, Object> response = Map.of(
+                    "message", "Sessões ativas finalizadas com sucesso",
+                    "finishedSessions", finishedCount,
+                    "timestamp", java.time.LocalDateTime.now().toString()
+            );
 
-        Map<String, Object> response = Map.of(
-                "message", "Sessões ativas finalizadas com sucesso",
-                "finishedSessions", finishedCount
-        );
-
-        return ResponseEntity.ok(response);
-    } catch (RuntimeException e) {
-        return ResponseEntity.badRequest().body(Map.of(
-                "error", "Erro ao finalizar sessões ativas",
-                "details", e.getMessage()
-        ));
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Erro ao finalizar sessões ativas",
+                    "details", e.getMessage()
+            ));
+        }
     }
-}
 }
